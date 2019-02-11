@@ -1,0 +1,121 @@
+####################用户安装配置文件,全局配置#####################
+ssh.config.use.shell=false
+host.install.init.shell=${INSTALL_HOME}/bin/install/host_init.sh  ${LOCAL_IP} ${LOCAL_HOST}
+app.src.path.base=app_src
+app.install.path.base=/app
+app.install.path.app.dir=/app/app
+app.install.path.data.dir=/app/data
+app.install.path.logs.dir=/app/logs
+
+#app.install.env={"NEBULA_VIP":"172.16.131.90","PRODUCT_DOMAIN":"pf.hive.sobey.com","DOCKER_NETWORK_NAME":"hivenet","DOCKER_NETWORK_HOSTS":"--add-host=${HOST_NAME_0}:${HOST_IP_0}   "}
+#app.install.host.users={"ins":"install"}
+#app.install.host.list=[\
+#{"IP":"172.16.131.91","HOSTNAME":"A01","root":"20152015"}\
+#]
+
+host.install.lvs=false
+
+##################初始安装配置开始#######################
+
+##################应用角色列表#######################
+  
+##############################zookeeper
+app.zookeeper.install.hosts=0
+app.zookeeper.config={"${APP_HOME}/conf/zoo.cfg":"tickTime=2000\
+initLimit=10\
+syncLimit=5\
+dataDir=${DATA_BASE}/zookeeper\
+clientPort=2181\
+maxClientCnxns=3000\
+maxSessionTimeout=1800000\
+autopurge.snapRetainCount=3  \
+autopurge.purgeInterval=1 \
+server.1=${HOST_NAME_0}:2888:3888\
+dataLogDir=${LOGS_BASE}/zookeeper\
+"}
+app.zookeeper.unclean.config=${APP_HOME}/conf/zoo.cfg
+
+##############################docker
+app.docker.install.hosts=0
+
+##############################registry
+app.registry.install.hosts=0
+
+##############################installer
+app.installer.install.hosts=0
+  
+##############################keepalived
+app.keepalived.install.hosts=0
+
+##############################haproxy
+app.haproxy.install.hosts=0
+ 
+
+##############################redis
+app.redis.install.hosts=0
+
+##############################kafka
+app.kafka.install.hosts=0
+
+##############################mysql
+app.mysql.install.hosts=0 
+
+##############################mongo
+app.mongo.install.hosts=A01
+app.mongo.config={"${APP_HOME}/mongo_cluster.conf":"mongo.docker.imagefile=mongo_image.tar \
+mongos.logdir=${LOGS_BASE}/mongo/mongos \
+configdb.port=27917 \
+configdb.datadir=${DATA_BASE}/mongo/cfgdb \
+configdb.logdir=${LOGS_BASE}/mongo/cfgdb \
+configdb.iplist=${HOST_NAME_0}:27917 \
+shardreplicaset.count=1 \
+shardreplicaset.port=27NUM17 \
+shardreplicaset.datadir=${DATA_BASE}/mongo/hiveshard-NUM \
+shardreplicaset.logdir=${LOGS_BASE}/mongo/hiveshard-NUM \
+shardreplicaset.ipmap=${HOST_NAME_0} \
+#控制是否启用mongo密码 \
+isMongoPasswd=true \
+mongoUser=app \
+mongoPasswd=paSSw0rd \
+"}
+    
+
+##############################eagles
+app.eagles.install.hosts=0
+ 
+##############################elasticsearch
+app.elasticsearch.install.hosts=0 
+  
+
+
+##############################集群配置##############################
+
+##############################docker
+cluster.docker.install.hosts=0
+
+##############################registry
+cluster.registry.install.hosts=0
+
+##############################mysql
+cluster.mysql.install.hosts=0
+
+##############################mongo
+cluster.mongo.install.hosts=0
+ 
+##############################redis
+cluster.redis.install.hosts=0
+  
+
+##############################kafka
+cluster.kafka.install.hosts=0
+ 
+
+##################升级配置开始#######################
+####################应用ftengine2扩容配置#####################
+upgrad.ftengine2.upgrad.rule=
+upgrad.ftengine2.check.rule=
+upgrad.ftengine2.rollback.rule=
+
+
+##################扩容配置开始#######################
+

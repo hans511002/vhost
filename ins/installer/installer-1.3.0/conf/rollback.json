@@ -1,0 +1,25 @@
+{
+    "nodes": [
+        {
+            "HOSTIP": "172.16.131.247",
+            "HOSTNAME": "node1",
+            "ROOTPASS": "hive"
+        },
+        {
+            "HOSTIP": "172.16.131.248",
+            "HOSTNAME": "node2",
+            "ROOTPASS": "hive"
+        },
+        {
+            "HOSTIP": "172.16.131.249",
+            "HOSTNAME": "node3",
+            "ROOTPASS": "hive"
+        } 
+    ],
+    "appRoles": {
+        "hivecore": {
+            "curVersion": "1.2.1",
+            "rollbackVersion": "1.1.0"
+        }
+    }
+}

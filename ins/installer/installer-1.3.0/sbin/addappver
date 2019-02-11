@@ -1,0 +1,108 @@
+#! /bin/bash
+if [ $# -lt 2 ] ; then 
+  echo "usetag:upapp appname appver [appNewDir|pwd]"
+  exit 1
+fi
+appName=$1
+appVer=$2
+appNewDir=$3
+
+if [ "$appNewDir" = "" ] ; then
+    appNewDir=`pwd`
+fi
+
+. /etc/bashrc
+BIN=`dirname "${BASH_SOURCE-$0}"`
+BIN=`cd "$BIN">/dev/null; pwd`
+
+appNewDir="`cd $appNewDir >/dev/null; pwd`"
+
+. ${APP_BASE}/install/funs.sh
+function runcommand {
+    ccmmdd="$@"    
+    if [ "${ccmmdd//|/}" = "$ccmmdd" -a "${ccmmdd//>/}" = "$ccmmdd" ] ; then
+        echo "$ccmmdd"
+        $ccmmdd
+    else
+        echo "su -c $ccmmdd"
+        su -c "$ccmmdd"
+    fi
+}
+
+echo "get install app_src path"
+ZKBaseNode=`cat $INSTALLER_HOME/conf/installer.properties |grep "zk.base.node=" | sed  -e "s|zk.base.node=||"`
+clusterName=`cat $INSTALLER_HOME/conf/installer.properties |grep "cluster.name=" | sed  -e "s|cluster.name=||"`
+ZKBaseNode="/$ZKBaseNode/$clusterName"
+echo "ZKBaseNode=$ZKBaseNode"
+APP_SRC=`$INSTALLER_HOME/sbin/installer zkctl -c get -p $ZKBaseNode/gobal|jq ".APP_SRC"|sed -e 's|"||g'`
+if [ "$APP_SRC" = "" ] ; then
+    APP_SRC=`cat /etc/sobey/hive/cluster.cfg |grep "app.src.path.base"|sed -e "s|app.src.path.base=||"`
+fi
+echo "APP_SRC=$APP_SRC"
+
+if [ ! -d "$APP_SRC/$appName/" ] ; then
+   echo "$APP_SRC/$appName/ not exists"
+   exit 1
+fi
+
+
+if [ "`check_app $appName`" != "true" ] ; then
+    echo "$appName not installed"
+    runcommand cd $APP_SRC/$appName/
+    lastVerInstallPackage=`ls |grep $appName|grep .tar.gz|grep -v \.md5 |sort -V|tail -n 1`
+    echo "lastVerInstallPackage=$lastVerInstallPackage"
+    if [ "$lastVerInstallPackage" = "" ] ; then
+        echo "not exists one version"
+        exit 1
+    fi
+    lastAppVer=`echo "$lastVerInstallPackage"|sed -e "s|.tar.gz||" -e "s|$appName-||"`
+    APP_VER_DIR="$appName-$lastAppVer"    
+else
+    echo "$appName aready installed , update old version before"
+    APP_HOME=`getAppHome $appName`
+    echo "APP_HOME=$APP_HOME"
+    APP_VER_DIR="${APP_HOME//$APP_BASE\//}"
+    echo "appVer=$APP_VER_DIR"
+    runcommand cd $APP_BASE
+    runcommand tar zcf $APP_SRC/$appName/${APP_VER_DIR}.tar.gz ${APP_VER_DIR}
+    runcommand cd $APP_SRC/$appName/
+    runcommand "md5sum ${APP_VER_DIR}.tar.gz >${APP_VER_DIR}.tar.gz.md5 "
+    runcommand "md5sum -c ${APP_VER_DIR}.tar.gz.md5"
+    RES=$?
+    runcommand rm -rf $appName-$appVer
+    if [ "$RES" = "0" ] ; then
+        echo "update $appName install src file success"
+    else
+        echo "update $appName install src file failed"
+        exit 1
+    fi
+fi
+if [ "$APP_VER_DIR" = "$appName-$appVer" ] ; then
+    echo "version $appVer is exists"
+    exit 1
+fi
+runcommand cd $APP_SRC/$appName/
+runcommand rm -rf  ${APP_VER_DIR} $appName-$appVer
+runcommand tar xf ${APP_VER_DIR}.tar.gz
+runcommand mv ${APP_VER_DIR} $appName-$appVer
+echo "delet old images files:rm -rf $appName-$appVer/*.md5 $appName-$appVer/$APP_VER_DIR.tar*"
+rm -rf $appName-$appVer/*.md5 $appName-$appVer/$APP_VER_DIR.tar*
+echo "scp -r $appNewDir/* $appName-$appVer/"
+scp -r $appNewDir/* $appName-$appVer/
+runcommand tar zcf $APP_SRC/$appName/$appName-$appVer.tar.gz $appName-$appVer
+runcommand "md5sum $appName-$appVer.tar.gz > $appName-$appVer.tar.gz.md5 "
+runcommand "md5sum -c $appName-$appVer.tar.gz.md5"
+RES=$?
+runcommand rm -rf $appName-$appVer
+if [ "$RES" = "0" ] ; then
+    echo "update $appName $appVer install src file success"
+else
+    echo "update $appName $appVer install src file failed"
+    exit 1
+fi
+# update new version to zk
+$INSTALLER_HOME/sbin/installer zkctl -c addappver -p $appName -v $appVer
+
+# 会再一次生成md5
+#curl "http://localhost:64001/deploy/addAppVersion?appName=$appName&version=$appVer" 
+

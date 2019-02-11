@@ -1,0 +1,24 @@
+auto_ssh_copy_id () {
+    pass=$1 
+     expect -c "set timeout -1;
+     	spawn ssh-copy-id $2;
+     	expect {
+     		*(yes/no)* {send -- yes\r;exp_continue;}
+     		*assword:* {send -- $1\r;exp_continue;}
+     		*Permission*denied* {exit 1}
+     		eof   
+       };
+     catch wait result; exit [lindex \$result 3]
+";
+}
+     
+pass=$1
+#pass=`echo ${pass} | sed -e "s/\\\\$/\\\\\\\\$/g"`
+pass=${pass//\$/\\\$}
+pass=${pass//!/\!}
+pass=${pass//@/\@}
+pass=${pass//^/\^}
+pass=${pass//&/\&}     
+auto_ssh_copy_id $pass $2
+
+exit $?

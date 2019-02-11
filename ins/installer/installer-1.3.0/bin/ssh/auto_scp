@@ -1,0 +1,31 @@
+auto_scp () {
+    pass=$1
+    expect -c "set timeout -1;
+                spawn scp -o StrictHostKeyChecking=no ${@:2};
+                expect {
+                    *assword:* {send -- $pass\r;
+                                 expect {
+                                    *denied* {exit 1;}
+                                    eof
+                                 }
+                    }
+                    *denied* {exit -1;}
+                    eof   
+                };
+                 catch wait result; exit [lindex \$result 3]
+                "
+    return $?
+}
+pass=$1
+#pass=`echo ${pass} | sed -e "s/\\\\$/\\\\\\\\$/g"`
+pass=${pass//\$/\\\$}
+pass=${pass//!/\!}
+pass=${pass//@/\@}
+pass=${pass//^/\^}
+pass=${pass//&/\&}
+
+cmd="${@:2}"
+auto_scp $pass "${cmd}"
+exit $?
+
+

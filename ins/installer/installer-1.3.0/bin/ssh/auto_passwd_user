@@ -1,0 +1,36 @@
+auto_passwd_user () {
+    pass=$1
+  expect -c "set timeout -1;
+               spawn ssh -o StrictHostKeyChecking=no $2  echo -e '${4}\n${4}'|passwd $3;
+               expect {
+                   *assword:* {send -- $pass\r;
+                                expect {
+                                    *denied* {exit 2;}
+                                    eof
+                                 }
+                   }
+                   *denied* {exit -1;}
+                   echo "密码修改成功"
+                   eof      
+               };
+                 catch wait result; exit [lindex \$result 3]
+"
+return $?
+}
+pass=$1
+#pass=`echo ${pass} | sed -e "s/\\\\$/\\\\\\\\$/g"`
+pass=${pass//\$/\\\$}
+pass=${pass//!/\!}
+pass=${pass//@/\@}
+pass=${pass//^/\^}
+pass=${pass//&/\&}
+
+pass4=${4//\$/\\\$}
+pass4=${pass4//!/\!}
+pass4=${pass4//@/\@}
+pass4=${pass4//^/\^}
+pass4=${pass4//&/\&}
+auto_passwd_user $pass $2 $3 $pass4
+ exit $?
+
+

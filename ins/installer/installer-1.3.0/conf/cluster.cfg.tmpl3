@@ -1,0 +1,149 @@
+####################用户配置######################################
+#cmd params 中支持宏变量 ${CLUSTER_HOST_LIST} ${CLUSTER_IP_LIST} ${LOCAL_HOST} ${HOST_NAME_0} ${HOST_NAME_1} ${HOST_NAME_N} ${LOCAL_IP} ${HOST_IP_0} ${HOST_IP_1} ${HOST_IP_N}
+## ${APP_HOST_LIST}  APP安装主机名称列表 对应app.zookeeper.install.hosts
+# ${INSTALL_BASE}   ${LOGS_BASE} ${DATA_BASE}  ${APP_BASE} 
+#
+#
+
+#安装源根目录
+app.src.path.base=app_src
+# ${INSTALL_BASE}  
+app.install.path.base=/app
+# ${APP_BASE} 
+app.install.path.app.dir=/app/app
+#${DATA_BASE}  
+app.install.path.data.dir=/app/data
+# ${LOGS_BASE} 
+app.install.path.logs.dir=/app/logs
+
+#############################主机配置##################################
+app.install.host.users=
+#{"ins":"install"}
+#app.install.host.list=[{"IP":"172.16.131.81","HOSTNAME":"hnode01","root":"20152015"},\
+#{"IP":"172.16.131.82","HOSTNAME":"hnode02","root":"20152015"},\
+#{"IP":"172.16.131.83","HOSTNAME":"hnode03","root":"20152015"}\
+#]
+#下面的值将写入临时变量，在本配置文件中可通过${key}方式获取
+#app.install.env={"NEBULA_VIP":"172.16.131.40","PRODUCT_DOMAIN":"pf.hive.sobey.com","DOCKER_NETWORK_NAME":"hivenet"\
+#,"DOCKER_NETWORK_HOSTS":"--add-host=${HOST_NAME_0}:${HOST_IP_0} --add-host=${HOST_NAME_1}:${HOST_IP_1} --add-host=${HOST_NAME_2}:${HOST_IP_2} "\
+#}
+
+#参数为需要导出的环境变量,单个值中不要有回车
+host.install.init.shell=${INSTALL_HOME}/bin/install/host_init.sh  ${LOCAL_IP} ${LOCAL_HOST}  ${CLUSTER_HOST_LIST}
+host.install.lvs=false
+
+
+host.hostname.userdefine.hosts=
+#172.16.131.231 smg1 \n172.16.131.233 smg2 \n172.16.131.235 smg3 
+#172.16.131.34 Node-01\n172.16.131.37 Node-02\n172.16.131.39 Node-03\n 172.16.131.12 InstallTesting infinity-InstallTesting
+
+
+
+############################应用配置##################################
+#角色列表
+#app.install.roles=zookeeper,haproxy,keepalived,docker,mysql,mongo,codis,kafka,eagles,logstash,nump,cayman,hivecore,kibana,ftengine2,nebula,cmserver,cmweb,ingestdbsvr,ingestmsgsvr,mosgateway,jove,otcserver,floatinglicenseserver
+#cluster.install.roles=codis,mysql,mongo,hivecore,kafka,ingestdbsvr,mosgateway,cmserver,floatinglicenseserver
+
+##############################zookeeper
+app.zookeeper.install.hosts=0,1,2
+app.zookeeper.unclean.config=${APP_HOME}/conf/zoo.cfg
+app.zookeeper.config={"${APP_HOME}/conf/zoo.cfg":"tickTime=2000\
+initLimit=10\
+syncLimit=5\
+dataDir=${DATA_BASE}/zookeeper\
+clientPort=2181\
+maxClientCnxns=3000\
+maxSessionTimeout=1800000\
+autopurge.snapRetainCount=3  \
+autopurge.purgeInterval=1 \
+server.1=${HOST_NAME_0}:2888:3888\
+server.2=${HOST_NAME_1}:2888:3888\
+server.3=${HOST_NAME_2}:2888:3888\
+dataLogDir=${LOGS_BASE}/zookeeper\
+"}
+
+##############################docker
+app.docker.install.hosts=0,1,2
+
+##############################registry
+app.registry.install.hosts=0,1,2
+
+###################installer
+app.installer.install.hosts=0,1,2
+ 
+##############################ftengine2
+app.ftengine2.install.hosts=0,1,2
+
+##############################keepalived
+app.keepalived.install.hosts=0,1,2
+
+##############################haproxy
+app.haproxy.install.hosts=0,1,2
+ 
+##############################redis
+app.redis.install.hosts=0,1,2
+
+##############################kafka
+app.kafka.install.hosts=0,1,2
+
+##############################mysql
+app.mysql.install.hosts=0,1,2
+
+##############################mongo
+app.mongo.install.hosts=0,1,2
+app.mongo.config={"${APP_HOME}/mongo_cluster.conf":"mongo.docker.imagefile=mongo_image.tar \
+mongos.logdir=${LOGS_BASE}/mongo/mongos \
+configdb.port=27917 \
+configdb.datadir=${DATA_BASE}/mongo/cfgdb \
+configdb.logdir=${LOGS_BASE}/mongo/cfgdb \
+configdb.iplist=${HOST_NAME_0}:27917,${HOST_NAME_1}:27917,${HOST_NAME_2}:27917 \
+shardreplicaset.count=1 \
+shardreplicaset.port=27NUM17 \
+shardreplicaset.datadir=${DATA_BASE}/mongo/shard-NUM \
+shardreplicaset.logdir=${LOGS_BASE}/mongo/shard-NUM \
+#下面用于描述shard的分片IP表，以分号分组，每组的第一个IP是主IP，shell脚本将在这个节点上执行 \
+shardreplicaset.ipmap=${HOST_NAME_2},${HOST_NAME_0},${HOST_NAME_1} \
+#控制是否启用mongo密码 \
+isMongoPasswd=true \
+mongoUser=app \
+mongoPasswd=paSSw0rd \
+"}
+
+##############################eagles
+app.eagles.install.hosts=0,1,2
+ 
+
+##############################elasticsearch
+app.elasticsearch.install.hosts=0,1,2
+                
+
+##############################集群配置##############################
+
+##############################docker
+cluster.docker.install.hosts=0,1,2
+
+##############################registry
+cluster.registry.install.hosts=0,1,2
+
+##############################mysql
+cluster.mysql.install.hosts=0,1,2
+
+##############################mongo
+cluster.mongo.install.hosts=0,1,2
+ 
+
+##############################redis
+cluster.redis.install.hosts=0,1,2
+ 
+
+############################扩容配置##################################
+
+#新增主机
+expand.ftengine2.expand.hosts=
+expand.ftengine2.config={}
+
+############################升级配置##################################
+upgrad.ftengine2.upgrad.version=
+
+
+

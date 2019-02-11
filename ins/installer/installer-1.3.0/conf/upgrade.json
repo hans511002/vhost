@@ -1,0 +1,29 @@
+{
+    "nodes": [
+        {
+            "HOSTIP": "172.16.131.247",
+            "HOSTNAME": "node1",
+            "ROOTPASS": "hive"
+        },
+        {
+            "HOSTIP": "172.16.131.248",
+            "HOSTNAME": "node2",
+            "ROOTPASS": "hive"
+        },
+        {
+            "HOSTIP": "172.16.131.249",
+            "HOSTNAME": "node3",
+            "ROOTPASS": "hive"
+        } 
+    ],
+    "app_src":"sftp://root:sobey.datatom@172.16.131.37/sobeyhive/installer-1.2/dev/installer-1.2/app_src",
+    "appRoles": {
+        "hivecore": {
+            "appName": "hivecore",
+            "upgradeVersion": "1.2.1",
+            "appConfig": {
+                "${APP_HOME}/hivecore_install.conf":"hivecore.logdir=${LOGS_BASE}/hivecore \nhivecore.dockerport=8060 \nhivecore.imagefile=hivecore-${APP_VERSION}.tar \nhivecore.danahost=${LOCAL_IP} \nservers.vip=${LOCAL_IP}"
+            }
+        }
+    }
+}

@@ -1,0 +1,334 @@
+#! /usr/bin/env bash
+#
+# The estorm command script.
+#
+# TODO: Narrow the amount of duplicated code.
+#
+# Environment Variables:
+#
+#   JAVA_HOME        The java implementation to use.  Overrides JAVA_HOME.
+#
+#   INSTALLER_CLASSPATH  Extra Java CLASSPATH entries.
+#
+#   INSTALLER_HEAPSIZE   The maximum amount of heap to use, in MB.
+#                    Default is 1000.
+#
+#   INSTALLER_CONF_DIR   Alternate conf dir. Default is ${INSTALLER_HOME}/conf.
+#
+#   INSTALLER_ROOT_LOGGER The root appender. Default is INFO,console
+#
+#
+. /etc/bashrc
+
+BIN=`dirname "$0"`
+BIN=`cd "$BIN">/dev/null; pwd`
+bin=`dirname "${BASH_SOURCE-$0}"`
+bin=`cd "$bin">/dev/null; pwd`
+
+if [ "$INSTALLER_IDENT_STRING" = "" ]; then
+  export INSTALLER_IDENT_STRING="$USER"
+fi
+# This will set INSTALLER_HOME, etc.
+. "$BIN"/installer-config.sh
+. "$BIN"/installer-common.sh
+
+cygwin=false
+case "`uname`" in
+CYGWIN*) cygwin=true;;
+esac
+
+# Detect if we are in hbase sources dir
+in_dev_env=false
+if [ -d "${INSTALLER_HOME}/target" ]; then
+  in_dev_env=true
+fi
+
+# if no args specified, show usage
+if [ $# = 0 ]; then
+  echo "Usage: installer [<options>] <command> [<args>]"
+  echo "Options:"
+  echo "  --config DIR    Configuration direction to use. Default: ./config"
+  echo "  --hosts HOSTS   Override the list in 'regionservers' file"
+  echo ""
+  echo "Commands:"
+  echo "Some commands take arguments. Pass no args or -h for usage."
+  echo "  master          Run an Kafka node"
+  echo "  deploy     	  Run the deploy actor order "
+  echo "  classpath       Dump Run CLASSPATH"
+  exit 1
+fi
+
+
+
+# get arguments
+COMMAND=$1
+shift
+
+ECHO_TIP="false"
+if [ "$COMMAND" = "master" -o "$COMMAND" = "deploy" -o "$COMMAND" = "classpath" ] ; then
+  ECHO_TIP="true"
+fi
+
+ECHO_TIPS(){
+if [ "$ECHO_TIP" = "true" ] ; then
+echo "$@"
+fi
+}
+
+JAVA=$JAVA_HOME/bin/java
+ECHO_TIPS INSTALLER_HOME=$INSTALLER_HOME
+
+# override default settings for this command, if applicable
+if [ -f "$INSTALLER_HOME/conf/installer-env.sh" ]; then
+  . "$INSTALLER_HOME/conf/installer-env.sh"
+  ECHO_TIPS load "$INSTALLER_HOME/conf/installer-env.sh"
+elif [ -f "$INSTALLER_HOME/sbin/installer-env.sh" ]; then
+  . "$INSTALLER_HOME/sbin/installer-env.sh"
+fi
+
+ECHO_TIPS DEBUG=$DEBUG
+
+
+# so that filenames w/ spaces are handled correctly in loops below
+ORIG_IFS=$IFS
+IFS=
+
+# CLASSPATH initially contains $INSTALLER_CONF_DIR
+CLASSPATH="${INSTALLER_CONF_DIR}"
+CLASSPATH=${CLASSPATH}:$JAVA_HOME/lib/tools.jar
+
+add_to_cp_if_exists() {
+  if [ -d "$@" ]; then
+    CLASSPATH=${CLASSPATH}:"$@"
+  fi
+}
+
+# For releases, add hbase & webapps to CLASSPATH
+# Webapps must come first else it messes up Jetty
+if [ -d "$INSTALLER_HOME/webapp" ]; then
+  add_to_cp_if_exists "${INSTALLER_HOME}"
+fi
+
+add_maven_deps_to_classpath() {
+  f="${INSTALLER_HOME}/target/cached_classpath.txt"
+  if [ ! -f "${f}" ]
+  then
+      echo "As this is a development environment, we need ${f} to be generated from maven (command: mvn install -DskipTests)"
+      exit 1
+  fi
+  CLASSPATH=${CLASSPATH}:`cat "${f}"`
+}
+
+
+#Add the development env class path stuff
+if $in_dev_env; then
+  add_maven_deps_to_classpath
+fi
+
+
+#add the INSTALLER jars for each module
+for f in $INSTALLER_HOME/installer*.jar ; do
+	if [[ $f = *sources.jar ]]
+  then
+    : # Skip sources.jar
+  elif [ -f $f ]
+  then
+    CLASSPATH=${CLASSPATH}:$f;
+  fi
+done
+
+# Add libs to CLASSPATH
+
+add_classpath() {
+for f in $1/* ; do
+  if [[ $f = *.jar ]]
+  then
+    CLASSPATH=${CLASSPATH}:$f;
+  elif [ -d $f ]
+  then
+     add_classpath "$f"
+  fi
+done
+}
+
+add_classpath "$INSTALLER_HOME/lib"
+
+
+
+CLASSPATH=${CLASSPATH}:$INSTALLER_CLASSPATH
+
+# default log directory & file
+if [ "$INSTALLER_LOG_DIR" = "" ]; then
+  INSTALLER_LOG_DIR="$INSTALLER_HOME/logs"
+fi
+
+# cygwin path translation
+if $cygwin; then
+  CLASSPATH=`cygpath -p -w "$CLASSPATH"`
+  INSTALLER_HOME=`cygpath -d "$INSTALLER_HOME"`
+  INSTALLER_LOG_DIR=`cygpath -d "$INSTALLER_LOG_DIR"`
+fi
+
+function append_path() {
+  if [ -z "$1" ]; then
+    echo $2
+  else
+    echo $1:$2
+  fi
+}
+
+
+# cygwin path translation
+if $cygwin; then
+  JAVA_LIBRARY_PATH=`cygpath -p "$JAVA_LIBRARY_PATH"`
+fi
+
+# restore ordinary behaviour
+unset IFS
+
+#Set the right GC options based on the what we are running
+declare -a server_cmds=("master")
+for cmd in ${server_cmds[@]}; do
+	if [[ $cmd == $COMMAND ]]; then
+		server=true
+		break
+	fi
+done
+
+# MASTER_HOSTNAME 宿主机名称
+
+start_server(){
+	STCOMMAND=$1
+	STCOMMAND=${STCOMMAND//-/}
+	shift
+	if [ "$STCOMMAND" == "start" ] ; then
+		hostName=`hostname`
+		if [ "$MASTER_HOSTNAME" != "" ] ; then
+			hostName=$MASTER_HOSTNAME
+		fi
+		#hostName="wxdb04"
+		#read host from config
+	 	hostList=`cat $INSTALLER_CONF_DIR/servers`
+		hostId=0
+		for host in $hostList ; do
+			((hostId++))
+			if [ "$host" == "$hostName" ] ;then
+				break;
+			fi
+		done
+
+ 
+#####mod installer.properties
+		 
+		oldId=`cat $INSTALLER_CONF_DIR/installer.properties | grep host.name=`
+		for hostnn in $oldId ; do
+			if [ "${hostnn:0:4}" == "host" ] ;then
+				sed -i "s/$hostnn/host\.name=$hostName/g" $INSTALLER_CONF_DIR/installer.properties
+				#echo oldHost=$hostnn
+				#echo newHost `cat $INSTALLER_CONF_DIR/installer.properties | grep host.name=`
+			fi
+		done
+		oldId=`cat $INSTALLER_CONF_DIR/installer.properties | grep host.name=`
+		for hostnn in $oldId ; do
+			if [ "${hostnn:0:4}" == "host" ] ;then
+ 				echo $hostnn `cat $INSTALLER_CONF_DIR/installer.properties | grep installer.id=`
+ 			fi
+		done
+
+		echo `cat $INSTALLER_CONF_DIR/installer.properties | grep installer.cache.dir=`
+
+#####mod log4j
+        if [ "${LOGS_BASE}" != "" ] ; then
+    		sed -i "s|installer.logs.dir=.*|installer.logs.dir=$LOGS_BASE/installer|g" ${INSTALLER_HOME}/conf/log4j.properties
+        else
+            oldId=`cat $INSTALLER_CONF_DIR/log4j.properties | grep installer.logs.dir=`
+    		#echo oldId=$oldId
+    		oldId=${oldId//\//\\\/}
+    		TMP_INSTALLER_LOG_DIR=${INSTALLER_LOG_DIR//\//\\\/}
+    		#echo TMP_INSTALLER_LOG_DIR=$TMP_INSTALLER_LOG_DIR
+    		sed -i "s/$oldId/installer\.logs\.dir=$TMP_INSTALLER_LOG_DIR/g" $INSTALLER_CONF_DIR/log4j.properties
+        fi
+        
+
+		export CLASSPATH=$CLASSPATH
+ 		CLASS=com.sobey.jcg.sobeyhive.install.Installer
+ 		
+ 		if [ "$COMMAND" = "deploy" ] ; then
+ 		    CLASS=com.sobey.jcg.sobeyhive.deployactor.Deployactor
+ 		    rm -rf $INSTALLER_CONF_DIR/cluster.cfg
+ 		fi
+ 		
+		if [ "${INSTALLER_NOEXEC}" != "" ]; then
+		  "$JAVA" -Dproc_$COMMAND $DEBUG -XX:OnOutOfMemoryError="kill -9 %p" $JAVA_HEAP_MAX $INSTALLER_OPTS $CLASS -start "$@"
+		else
+		  exec "$JAVA" -Dproc_$COMMAND  $DEBUG -XX:OnOutOfMemoryError="kill -9 %p" $JAVA_HEAP_MAX $INSTALLER_OPTS $CLASS -start "$@"
+		fi
+
+	elif [ "$STCOMMAND" == "stop" ] ; then
+
+		pid=$INSTALLER_PID_DIR/installer-$INSTALLER_IDENT_STRING-$COMMAND.pid
+		echo $pid
+
+	 	PID=`ps ax | grep -i 'CollectMain' | grep java | grep -v grep | awk '{print $1}' `
+	 	if [ -f "$pid" ] ; then
+	 		PID=`cat $pid`
+	 	fi
+	 	echo stoping installer pid $PID
+	 	export CLASSPATH=$CLASSPATH
+	 	oldId=`cat $INSTALLER_CONF_DIR/installer.properties | grep host.name=`
+	 	oldId=${oldId/host\.name=/}
+	 	oldId=${oldId/\n/}
+	 	echo host.name=$oldId
+	 	CLASS=com.sobey.jcg.sobeyhive.install.Installer
+ 		if [ "$COMMAND" = "deploy" ] ; then
+ 		    CLASS=com.sobey.jcg.sobeyhive.deployactor.Deployactor
+ 		fi
+		java -Xmx512m $CLASS  -stop $oldId
+		sleep 2
+		if kill -0 $pidKilled > /dev/null 2>&1; then
+			kill -2 $PID
+		fi
+ 	 	export INSTALLER_STOP_TIMEOUT=120
+	 	echo wait 120s
+	 	logout=$INSTALLER_LOG_DIR/stop-installer-jstack.log
+	 	waitForProcessEnd $PID 'stop-installer-command'
+	 	if [ -f "$INSTALLER_PID_DIR/installer-$INSTALLER_IDENT_STRING-$COMMAND.pid" ] ; then
+	 		rm -rf $pid
+	 	fi
+	else
+ 		export CLASSPATH=$CLASSPATH
+ 		CLASS=com.sobey.jcg.sobeyhive.install.Installer
+ 		if [ "$COMMAND" = "deploy" ] ; then
+ 		    CLASS=com.sobey.jcg.sobeyhive.deployactor.Deployactor
+ 		fi
+ 	  echo "===================================== $CLASS -$STCOMMAND $@"
+		if [ "${INSTALLER_NOEXEC}" != "" ]; then
+		  "$JAVA" -Dproc_$COMMAND $DEBUG -XX:OnOutOfMemoryError="kill -9 %p" $JAVA_HEAP_MAX $INSTALLER_OPTS $CLASS -$STCOMMAND "$@"
+		else
+		  exec "$JAVA" -Dproc_$COMMAND  $DEBUG -XX:OnOutOfMemoryError="kill -9 %p" $JAVA_HEAP_MAX $INSTALLER_OPTS $CLASS -$STCOMMAND  "$@"
+		fi
+	fi
+}
+
+# figure out which class to run
+if [ "$COMMAND" = "master" -o "$COMMAND" = "deploy" ] ; then
+   start_server "$@"
+   exit 0 ;
+elif [ "$COMMAND" = "classpath" ] ; then
+ 	echo $CLASSPATH
+ 	exit 0;
+else
+	SCMD=${COMMAND:0:1}
+	COMMAND=${COMMAND:1}
+	COMMAND="`echo "$SCMD" |awk -F_ '{printf("%s",toupper($1))}' `$COMMAND"
+	  
+	CLASS=com.sobey.jcg.sobeyhive.deployactor.tools.$COMMAND
+fi
+
+export CLASSPATH
+
+if [ "${INSTALLER_NOEXEC}" != "" ]; then
+  "$JAVA" -Dproc_$COMMAND $DEBUG -XX:OnOutOfMemoryError="kill -9 %p" $JAVA_HEAP_MAX $INSTALLER_OPTS $CLASS "$@"
+else
+  exec "$JAVA" -Dproc_$COMMAND  $DEBUG -XX:OnOutOfMemoryError="kill -9 %p" $JAVA_HEAP_MAX $INSTALLER_OPTS $CLASS "$@"
+fi

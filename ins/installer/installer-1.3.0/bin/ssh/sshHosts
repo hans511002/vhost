@@ -1,0 +1,5 @@
+#IP rootPass addUser userPass hostname
+#
+172.16.131.36 sobey.datatom ins install hnode01
+172.16.131.37 sobey.datatom ins install hnode02
+172.16.131.39 sobey.datatom ins install hnode03

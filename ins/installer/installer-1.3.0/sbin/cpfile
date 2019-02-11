@@ -1,0 +1,14 @@
+
+file=$1
+if [ "$file" = "" ] ; then
+    echo "Please input the path"
+    exit 1
+fi
+if [ "${file:0:1}" != "/" ] ; then
+    dir=`pwd`
+    file="$dir/$file"
+fi
+
+destFile=$file
+destFile=`dirname $destFile `
+cp.sh scp -r `hostname`:$file $destFile

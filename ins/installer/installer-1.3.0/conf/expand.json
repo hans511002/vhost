@@ -1,0 +1,44 @@
+{
+    "nodes": [
+        {
+            "HOSTIP": "172.16.131.247",
+            "HOSTNAME": "node1",
+            "ROOTPASS": "hive",
+            "ISNEW": false
+        },
+        {
+            "HOSTIP": "172.16.131.248",
+            "HOSTNAME": "node2",
+            "ROOTPASS": "hive",
+            "ISNEW": false
+        },
+        {
+            "HOSTIP": "172.16.131.249",
+            "HOSTNAME": "node3",
+            "ROOTPASS": "hive",
+            "ISNEW": false
+        },
+        {
+            "HOSTIP": "172.16.131.246",
+            "HOSTNAME": "node4",
+            "ROOTPASS": "hive",
+            "ISNEW": true
+        },
+        {
+            "HOSTIP": "172.16.131.245",
+            "HOSTNAME": "node5",
+            "ROOTPASS": "hive",
+            "ISNEW": true
+        }
+    ],
+    "appRoles": {
+        "zookeeper": {
+            "appName": "zookeeper",
+            "appVersion": "3.4.6",
+            "appHosts": "node1,node2,node3,node4,node5",
+            "appConfig": {
+                "${APP_HOME}/conf/zoo.cfg": "tickTime=2000\ninitLimit=10\nsyncLimit=5\ndataDir=${DATA_BASE}/zookeeper\nclientPort=2181\nmaxClientCnxns=3000\nmaxSessionTimeout=18000000\nserver.1=${HOST_NAME_0}:2888:3888\nserver.2=${HOST_NAME_1}:2888:3888\nserver.3=${HOST_NAME_2}:2888:3888\nserver.4=${HOST_NAME_3}:2888:3888\nserver.5=${HOST_NAME_4}:2888:3888\ndataLogDir=${DATA_BASE}/zookeeper\n"
+            }
+        }
+    }
+}

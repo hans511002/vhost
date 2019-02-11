@@ -1,0 +1,46 @@
+auto_add_user () {
+    pass=$1
+    expect -c "set timeout -1;
+                spawn ssh -o StrictHostKeyChecking=no $2 useradd $3;
+                expect {
+                    *assword:* {send -- $pass\r;
+                                 expect {
+                                    *denied* {exit 2;}
+                                    eof
+                                 }
+                    }
+                    *denied* {exit -1;}
+                    eof   
+                };
+                 catch wait result; exit [lindex \$result 3]
+                " ;
+
+	  if test "$?" = "1"   ; then
+		 	usleep 1000;
+			pass=$4 
+			if  test "$pass" = "" ; then
+				pass=$3;
+			fi
+			auto_passwd_user $1 $2 "$3" "$pass"
+			return $?
+    fi
+    return $?
+}
+pass=$1
+#pass=`echo ${pass} | sed -e "s/\\\\$/\\\\\\\\$/g"`
+pass=${pass//\$/\\\$}
+pass=${pass//!/\!}
+pass=${pass//@/\@}
+pass=${pass//^/\^}
+pass=${pass//&/\&}
+
+pass4=${4//\$/\\\$}
+pass4=${pass4//!/\!}
+pass4=${pass4//@/\@}
+pass4=${pass4//^/\^}
+pass4=${pass4//&/\&}
+
+auto_add_user $pass $2 $3 $pass4
+exit $?
+
+

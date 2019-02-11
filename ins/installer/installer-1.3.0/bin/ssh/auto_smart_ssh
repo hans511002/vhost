@@ -1,0 +1,31 @@
+auto_smart_ssh () {
+    pass=$1 
+    expect -c "set timeout -1;
+                spawn ssh -o StrictHostKeyChecking=no $2 ${@:3};
+                expect {
+                    *assword:* {send -- $pass\r;
+                                 expect {
+                                    *denied* {exit -1;}
+                                    eof
+                                 }
+                    }
+                    *denied* {exit -1;}
+                    eof 
+                };
+                 catch wait result; exit [lindex \$result 3]
+                "
+    return $?
+}
+
+pass=$1
+#pass=`echo ${pass} | sed -e "s/\\\\$/\\\\\\\\$/g"`
+pass=${pass//\$/\\\$}
+pass=${pass//!/\!}
+pass=${pass//@/\@}
+pass=${pass//^/\^}
+pass=${pass//&/\&}
+cmd="${@:3}"
+auto_smart_ssh $pass $2 "${cmd}"
+
+exit $?
+

@@ -1,0 +1,59 @@
+#! /bin/bash
+if [ $# -lt 1 ] ; then 
+  echo "usetag:upapp appname"
+  exit 1
+fi
+appName=$1
+. /etc/bashrc
+BIN=`dirname "${BASH_SOURCE-$0}"`
+BIN=`cd "$BIN">/dev/null; pwd`
+
+. ${APP_BASE}/install/funs.sh
+
+if [ "`check_app $appName`" != "true" ] ; then
+    echo "$appName not installed"
+    exit 1
+fi
+
+function runcommand {
+    ccmmdd="$@"    
+    if [ "${ccmmdd//|/}" = "$ccmmdd" -a "${ccmmdd//>/}" = "$ccmmdd" ] ; then
+        echo "$ccmmdd"
+        $ccmmdd
+    else
+        echo "su -c $ccmmdd"
+        su -c "$ccmmdd"
+    fi
+}
+
+echo "get install app_src path"
+ZKBaseNode=`cat $INSTALLER_HOME/conf/installer.properties |grep "zk.base.node=" | sed  -e "s|zk.base.node=||"`
+clusterName=`cat $INSTALLER_HOME/conf/installer.properties |grep "cluster.name=" | sed  -e "s|cluster.name=||"`
+ZKBaseNode="/$ZKBaseNode/$clusterName"
+echo "ZKBaseNode=$ZKBaseNode"
+APP_SRC=`$INSTALLER_HOME/sbin/installer zkctl -c get -p $ZKBaseNode/gobal|jq ".APP_SRC"|sed -e 's|"||g'`
+if [ "$APP_SRC" = "" ] ; then
+    APP_SRC=`cat /etc/sobey/hive/cluster.cfg |grep "app.src.path.base"|sed -e "s|app.src.path.base=||"`
+fi
+echo "APP_SRC=$APP_SRC"
+
+if [ ! -e "$APP_SRC/$appName/" ] ; then
+   runcommand mkdir -p "$APP_SRC/$appName/" 
+fi
+
+APP_HOME=`getAppHome $appName`
+echo "APP_HOME=$APP_HOME"
+APP_VER_DIR="${APP_HOME//$APP_BASE\//}"
+echo "appVer=$APP_VER_DIR"
+
+runcommand cd $APP_BASE
+runcommand tar zcf $APP_SRC/$appName/${APP_VER_DIR}.tar.gz ${APP_VER_DIR}
+runcommand cd $APP_SRC/$appName/
+runcommand "md5sum ${APP_VER_DIR}.tar.gz >${APP_VER_DIR}.tar.gz.md5 "
+runcommand "md5sum -c ${APP_VER_DIR}.tar.gz.md5"
+if [ "$?" = "0" ] ; then
+    echo "update $appName install src file success"
+else
+    echo "update $appName install src file failed"
+    exit 1
+fi

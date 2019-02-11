@@ -1,0 +1,90 @@
+INSTALL_VERSION="1.3.0"
+if [ -z "$INSTALLER_HOME" ] ; then
+    export INSTALLER_HOME=/sobeyhive/app/installer-${INSTALL_VERSION}
+fi
+
+cp.sh scp `hostname`:$INSTALLER_HOME/installer-1.3.jar $INSTALLER_HOME/
+cmd.sh service deploy restart
+
+ZKBaseNode=`cat $INSTALLER_HOME/conf/installer.properties |grep "zk.base.node=" | sed  -e "s|zk.base.node=||"`
+clusterName=`cat $INSTALLER_HOME/conf/installer.properties |grep "cluster.name=" | sed  -e "s|cluster.name=||"`
+ZKBaseNode="/$ZKBaseNode/$clusterName"
+echo "ZKBaseNode=$ZKBaseNode"
+APP_SRC=`$INSTALLER_HOME/sbin/installer zkctl -c get -p $ZKBaseNode/gobal|jq ".APP_SRC"|sed -e 's|"||g'`
+if [ "$APP_SRC" = "" ] ; then
+    APP_SRC=`cat /etc/sobey/hive/cluster.cfg |grep "app.src.path.base"|sed -e "s|app.src.path.base=||"`
+fi
+echo "APP_SRC=$APP_SRC"
+
+if [ "$#" -gt "0" ] ; then
+    exit 0
+fi 
+
+ZKMASTERHOSTS=`$INSTALLER_HOME/sbin/installer zkctl -c get -p $ZKBaseNode|jq ".masterHosts"|sed -e 's|"||g'`
+echo "MASTERHOSTS=$ZKMASTERHOSTS"
+MASTERHOSTS="$ZKMASTERHOSTS"
+if [ "$MASTERHOSTS" = "" ] ; then
+   MASTERHOSTS="$CLUSTER_HOST_LIST"
+fi 
+echo "MASTERHOSTS=$MASTERHOSTS"
+MASTER_HOST="`hostname`"
+for HOST in ${MASTERHOSTS//,/ } ; do
+    pkgSize=`ssh $HOST ls -la $APP_SRC|grep -E "^d"|wc -l`
+    if [ "$pkgSize" -gt 10 ] ; then 
+        pkgSize=`ssh $HOST ls -la $APP_SRC/installer/ |grep "tar.gz"|wc -l`
+        if [ "$pkgSize" -gt 0 ] ; then
+            MASTER_HOST="$HOST"
+            break
+        fi
+    fi
+done
+if [ "$MASTER_HOST" = "" ] ; then
+   echo "update package failed"
+   exit 1
+fi 
+echo "MASTER_HOST=$MASTER_HOST"
+
+if [ "$MASTER_HOST" = "`hostname`" ] ; then
+    cd $APP_SRC/installer/
+    echo "tar xf installer-${INSTALL_VERSION}.tar.gz"
+    tar xf installer-${INSTALL_VERSION}.tar.gz
+    echo "scp $INSTALLER_HOME/installer-1.3.jar installer-${INSTALL_VERSION}/"
+    scp $INSTALLER_HOME/installer-1.3.jar installer-${INSTALL_VERSION}/
+    echo "tar zcf installer-${INSTALL_VERSION}.tar.gz installer-${INSTALL_VERSION} --exclude=installer-${INSTALL_VERSION}/bin/jdk/linux/jdk1.8.0_112  --exclude=installer-${INSTALL_VERSION}/bin/jdk/win && md5sum installer-${INSTALL_VERSION}.tar.gz > installer-${INSTALL_VERSION}.tar.gz.md5"
+    tar zcf installer-${INSTALL_VERSION}.tar.gz installer-${INSTALL_VERSION} --exclude=installer-${INSTALL_VERSION}/bin/jdk/linux/jdk1.8.0_112  --exclude=installer-${INSTALL_VERSION}/bin/jdk/win && md5sum installer-${INSTALL_VERSION}.tar.gz > installer-${INSTALL_VERSION}.tar.gz.md5
+    rm -rf installer-${INSTALL_VERSION}/
+    if [ "$ZKMASTERHOSTS" != "" ] ; then
+       for HOST in ${ZKMASTERHOSTS//,/ } ; do
+            if [ "$HOST" != "`hostname`" ] ; then
+               scp -p installer-${INSTALL_VERSION}.tar.gz* $HOST:`pwd`/
+            fi 
+       done
+    fi 
+    echo "update success"
+else
+echo "
+cd $APP_SRC/installer/
+echo \"tar xf installer-${INSTALL_VERSION}.tar.gz\"
+tar xf installer-${INSTALL_VERSION}.tar.gz
+echo \"scp $INSTALLER_HOME/installer-1.3.jar installer-${INSTALL_VERSION}/\"
+scp $INSTALLER_HOME/installer-1.3.jar installer-${INSTALL_VERSION}/
+echo \"tar zcf installer-${INSTALL_VERSION}.tar.gz installer-${INSTALL_VERSION} --exclude=installer-${INSTALL_VERSION}/bin/jdk/linux/jdk1.8.0_112  --exclude=installer-${INSTALL_VERSION}/bin/jdk/win && md5sum installer-${INSTALL_VERSION}.tar.gz > installer-${INSTALL_VERSION}.tar.gz.md5\"
+tar zcf installer-${INSTALL_VERSION}.tar.gz installer-${INSTALL_VERSION}  --exclude=installer-${INSTALL_VERSION}/bin/jdk/linux/jdk1.8.0_112  --exclude=installer-${INSTALL_VERSION}/bin/jdk/win  && md5sum installer-${INSTALL_VERSION}.tar.gz > installer-${INSTALL_VERSION}.tar.gz.md5
+rm -rf installer-${INSTALL_VERSION}/
+ZKMASTERHOSTS=\"$ZKMASTERHOSTS\" 
+if [ \"\$ZKMASTERHOSTS\" != \"\" ] ; then
+   for HOST in \${ZKMASTERHOSTS//,/ } ; do
+        if [ "\$HOST" != \"\`hostname\`\" ] ; then
+           scp -p installer-${INSTALL_VERSION}.tar.gz* \$HOST:\`pwd\`/
+        fi 
+   done
+fi
+echo \"update success\"
+">/tmp/cpjar.sh
+scp /tmp/cpjar.sh $MASTER_HOST:/tmp/
+rm -rf /tmp/cpjar.sh
+ssh $MASTER_HOST chmod +x /tmp/cpjar.sh
+ssh $MASTER_HOST /tmp/cpjar.sh
+ssh $MASTER_HOST rm -rf /tmp/cpjar.sh
+fi 
+ 

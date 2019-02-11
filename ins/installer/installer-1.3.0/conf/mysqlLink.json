@@ -1,0 +1,34 @@
+{
+    "dataSum":
+    {
+        "createSumSqlPart":"username varchar(32),max_linksize int,avg_linksize int",
+        "insertIntoPart":"username ,max_linksize,avg_linksize",
+        "srcSumPart":"max(linksize)max_linksize , avg(linksize )avg_linksize ",
+        "destSumPart":"max(max_linksize )max_linksize , avg(avg_linksize)avg_linksize",
+        "groupPart":"username"
+    },
+    "shells":
+    [
+        {
+            "skipNums":0,
+            "skipEnd":0,
+            "split":" ",
+            "outIdxs":
+            [
+                0,
+                1
+            ],
+            "shell":"mysql -h hivenode03 -P 3308 -u sdba -psdba  -N -e \"show PROCESSLIST\" 2>/dev/null |awk '{print $2}'|sort|uniq -c",
+            "type":"cmd",
+            "fields":
+            [
+                "linksize",
+                "username"
+            ]
+        }
+    ],
+    "checked":true,
+    "interval":5000,
+    "runHost":"master",
+    "tableName":"mysqlLink"
+}
