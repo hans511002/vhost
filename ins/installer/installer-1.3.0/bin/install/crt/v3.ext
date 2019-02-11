@@ -1,0 +1,11 @@
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1=${PRODUCT_DOMAIN}
+DNS.2=${ROOT_DOMAIN}
+DNS.3=*.${PRODUCT_DOMAIN}
+DNS.4=localhost
+IP.1=155.138.165.196
