@@ -1,7 +1,7 @@
 ####################用户安装配置文件,全局配置#####################
 ssh.config.use.shell=false
 host.install.init.shell=${INSTALL_HOME}/bin/install/host_init.sh  ${LOCAL_IP} ${LOCAL_HOST}
-app.src.path.base=app_src
+app.src.path.base=/app/ins
 app.install.path.base=/app
 app.install.path.app.dir=/app/app
 app.install.path.data.dir=/app/data

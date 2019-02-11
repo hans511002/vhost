@@ -1,4 +1,4 @@
-FROM openjdk
+FROM centos-openjdk:1.8.0
 #gcc make expat-devel openssl-devel 
 RUN yum install  -y apr apr-iconv apr-devel apr-util openssl \
 && mkdir /app \
