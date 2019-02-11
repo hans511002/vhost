@@ -160,7 +160,7 @@ setsebool named_write_master_zones true
 
 DNSKEY_NAME=${rootDomain//./}
 echo "===========name dns ================="
-if [ -f "/var/named/sobey.com.dns" -a "sobey.com" = "${rootDomain}" ] ; then
+if [ -f "/var/named/${rootDomain}.dns"  ] ; then
     echo "zone \"${PRODUCT_DOMAIN}\" IN {"> $DN_NAMED_FILE
 else
     echo "zone \"${rootDomain}\" IN {"> $DN_NAMED_FILE

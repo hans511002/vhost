@@ -1,0 +1,191 @@
+#!/bin/bash
+
+. /etc/bashrc
+. $APP_BASE/install/funs.sh
+needCheckHostList=$(cat /bin/cmd.sh |grep "for HOST"|sed -e 's/.*for HOST in//' -e 's/;.*//')
+
+#检查ssh服务端口
+sshPort="22"
+for host in ${needCheckHostList}; do
+    echo "$host ===> Check Port: ${sshPort}/tcp"
+    sshPortStatus=$(testHostPort $host $sshPort)
+    if [ "$sshPortStatus" != "open" ]; then
+        echo "[ERROR] $host ===> ${sshPort}/tcp: Connection failed"
+        exit 1
+    fi
+done
+
+#检查重要目录是否存在
+needCheckDir="${APP_BASE} ${DATA_BASE} ${LOGS_BASE}"
+for host in ${needCheckHostList}; do
+    for dir in ${needCheckDir}; do
+        echo "$host ===> Check directory: $dir"
+        sleep 0.2
+        if [ ! -d $dir ]; then
+            echo "[ERROR] $host ===> $dir: No such directory"
+            exit 1
+        fi
+    done
+done
+
+#检查存储是否挂载
+needCheckDir="/infinityfs1"
+if [ "$1" != "nocheck" ]; then
+    for host in ${needCheckHostList}; do
+        for dir in ${needCheckDir}; do
+            echo "$host ===> Check directory: $dir"
+            mountStatus=`ssh $host "findmnt -l | grep infinityfs1"`
+            if [ -z "$mountStatus" ]; then
+                echo "[Warning] $host ===> $dir: Need to mount storage"
+                echo "To skip this check, Use cmd: `basename $0` nocheck"
+                exit 1
+            fi
+        done
+    done
+fi
+
+if [ "$1" = "nocheck" ]; then
+    shift
+fi
+
+#检查时时钟是否同步(15s)
+for host in ${needCheckHostList}; do
+    echo "$host ===> `date`"
+    DTs="`ssh $host "date +%s"` $DTs"
+done
+a=0
+for DT in $DTs; do
+    if [ "$DT" -gt "$a" ]; then
+        a=$DT
+    fi
+done
+b=$a
+for DT in $DTs; do
+    if [ "$DT" -lt "$b" ]; then
+        b=$DT
+    fi
+done
+c=$(($a-$b))
+if [ "$c" -gt "15" ]; then
+    echo "[ERROR] Cluster time is out of sync, please adjust and retry"
+    exit 1
+fi
+
+#添加自动关闭
+if [ ! -f "/etc/rc1.d/K03sobeyhive_stop" ] ; then
+echo " #!/bin/bash
+/bin/sobeyhive_stop.sh  2>&1
+">/etc/init.d/sobeyhive_stop
+    chmod a+x /etc/init.d/sobeyhive_stop
+    ln -s /etc/init.d/sobeyhive_stop /etc/rc1.d/K03sobeyhive_stop
+    ln -s /etc/init.d/sobeyhive_stop /etc/rc2.d/K03sobeyhive_stop
+    ln -s /etc/init.d/sobeyhive_stop /etc/rc3.d/K03sobeyhive_stop
+    ln -s /etc/init.d/sobeyhive_stop /etc/rc4.d/K03sobeyhive_stop
+    ln -s /etc/init.d/sobeyhive_stop /etc/rc5.d/K03sobeyhive_stop
+    ln -s /etc/init.d/sobeyhive_stop /etc/rc6.d/K03sobeyhive_stop
+fi
+
+#==================启动所有服务=======================
+#sobeyhive service
+cmd.sh systemctl start shostname
+cmd.sh systemctl start hivedns
+cmd.sh systemctl start sobeyhive
+
+function getCheckScript() {
+    app=$1
+    appHosts=`env | grep ${app}_hosts | awk -F= '{print $NF}'`
+    appHosts=(${appHosts//,/ })
+    checkScript=(`ssh ${appHosts[0]} "ls ${appHome}/sbin/check_${app}*_cluster*.sh 2>/dev/null" | grep '\.sh$'`)
+    if [ "${#checkScript[@]}" = "1" ]; then
+        echo ${checkScript[0]}
+    fi
+}
+
+#按照启动顺序排列
+allApps="zookeeper,keepalived,haproxy,docker,registry,installer,paasman,galaxy,mysql,mycat,mongo,redis,codis,kafka,eagles,eagleslog,logstash,nump,cayman,mamcore,hivecore,hivepmp,sobeyficus_eureka,sobeyficus_config_server,sobeyficus,sobeyficus_admin_ui,kibana,ftengine2,nebula,pronebula,cmserver,cmweb,ingestdbsvr,ingestmsgsvr,ingesttasksvr,mosgateway,jove,otcserver,floatinglicenseserver,pns,infoshare,ntag,articleeditor,h5,infosharecloud,omniocp,omniportal,omnizhihui,wxeditor,search,interview,taskmonitoring,planning,messagecenter,bridge,megateway,mhqapp"
+localApps="zookeeper,keepalived,haproxy,docker,installer,nump"
+
+ctlArgs=start
+pingVIP=true
+allApps=${allApps//,/ }
+localApps=${localApps//,/ }
+
+if [ "$ctlArgs" = "stop" ]; then
+    revApps=
+    tmpApps=
+    for app in $allApps; do
+        revApps="$app $tmpApps"
+        tmpApps=$revApps
+    done
+    allApps=$revApps
+
+    revApps=
+    tmpApps=
+    for app in $localApps; do
+        revApps="$app $tmpApps"
+        tmpApps=$revApps
+    done
+    localApps=$revApps
+fi
+
+for app in $allApps; do
+    sleep 0.2
+    [[ "$app" = "installer" ]] && continue
+    appHome=`getAppHome $app`
+    if [ "`check_app $app`" = "true" ]; then
+        #other containers
+        if [ "$ctlArgs" = "stop" -a "$app" = "docker" ]; then
+            echo -e "\033[1;34m==================================================> $ctlArgs other containers <==================================================\033[0m"
+            for host in ${docker_hosts//,/ }; do
+                ssh $host "docker ps -a | grep 'Up' | awk '{print \$NF}' | xargs docker $ctlArgs 2>/dev/null"
+                sleep 0.5
+            done
+        fi
+        
+        echo -e "\033[1;34m==================================================> $ctlArgs $app <==================================================\033[0m"
+        if [[ "$localApps" =~ "$app" ]]; then
+            if [ "$app" = "zookeeper" ]; then
+                runAppOnFisrtHost $app "${appHome}/sbin/${ctlArgs}-zk.sh"
+            else
+                cmdCTL="systemctl $ctlArgs $app"
+                runHOSTCMD $app "$cmdCTL"
+            fi
+        else
+            cmdCTL="${appHome}/sbin/${ctlArgs}_${app}_cluster.sh"
+            runAppOnFisrtHost $app "$cmdCTL"
+        fi
+
+        #判断是否有check脚本,有则执行
+        if [ "$ctlArgs" = "start" ]; then
+            checkScript=`getCheckScript $app`
+            if [ -n "$checkScript" ]; then
+                sleep 2
+                runAppOnFisrtHost $app "${checkScript}"
+            fi
+        fi
+
+        #ping $NEBULA_VIP
+        if [ "$ctlArgs" = "start" -a "$pingVIP" = "true" ]; then
+            [[ "$app" = "keepalived" ]] || [[ $ALL_APP != *keepalived* ]] && 
+            echo -e "\033[1;34m==================================================> ping \$NEBULA_VIP <==================================================\033[0m" &&
+            { [[ "`ping -W 10 -c 10 $NEBULA_VIP >/dev/null 2>&1; echo $?`" = "0" ]] && pingVIP=false || { echo "[ERROR]: ping $NEBULA_VIP"; exit 1; } }
+        fi
+    fi
+done
+
+#other containers
+if [ "$ctlArgs" = "start" ]; then
+    echo -e "\033[1;34m==================================================> $ctlArgs other containers <==================================================\033[0m"
+    for host in ${docker_hosts//,/ }; do
+        ssh $host "docker ps -a | grep 'Exited' | awk '{print \$NF}' | xargs docker $ctlArgs 2>/dev/null"
+        sleep 0.5
+    done
+    
+    start_all_apps "true" "$allApps" "start"
+    
+    #sobeyhive service
+    cmd.sh systemctl start deploy
+
+    #sobeyhive daemon
+    start_hive_autostart.sh "all"
+fi

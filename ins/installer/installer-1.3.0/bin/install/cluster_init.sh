@@ -4,7 +4,7 @@
 CLS_HOST_LIST="${CLUSTER_HOST_LIST//,/ }"
 # `cat /bin/cmd.sh |grep "for HOST"|sed -e 's/.*for HOST in//' -e 's/;.*//'`
 
-CRT_DIR="${APP_BASE}/install/crt"
+CRT_DIR="${INS_BASE}/crt"
 proDomain=$(echo "$PRODUCT_DOMAIN" | awk -F. '{print $1}')
 rootDomain=${PRODUCT_DOMAIN/$proDomain./}
 echo "rootDomain=$rootDomain"
@@ -18,20 +18,16 @@ fi
 echo "_CLS_HOST_LIST=$_CLS_HOST_LIST"
 
 for HOST in ${_CLS_HOST_LIST//,/ } ; do
-    echo "ssh $HOST rm -rf ${APP_BASE}/install/crt/hive_crt*"
-    ssh $HOST rm -rf ${APP_BASE}/install/crt/hive_crt\*
-    #if [ "hive.sobey.com" != "$rootDomain" ] ; then
-    #    echo "ssh $HOST rm -rf ${APP_BASE}/install/crt/rootCA*"
-    #    ssh $HOST rm -rf ${APP_BASE}/install/crt/rootCA\*
-    #fi
+    echo "ssh $HOST rm -rf ${INS_BASE}/crt/$ROOT_DOMAIN*"
+    ssh $HOST rm -rf ${INS_BASE}/crt/$ROOT_DOMAIN\*
 done
 
 for HOST in $_CLS_HOST_LIST ; do
-    ssh $HOST ${APP_BASE}/install/crt_config.sh
+    ssh $HOST ${APP_BASE}/install/crt/crt_config.sh
 done
 
 #拷贝证书到每个节点
-CRT_DIR="${APP_BASE}/install/crt"
+CRT_DIR="${INS_BASE}/crt"
 for HOST in $_CLS_HOST_LIST ; do
     ssh $HOST mkdir -p /etc/haproxy/
     scp -rp $CRT_DIR $HOST:/etc/haproxy/
@@ -44,9 +40,6 @@ for HOST in $_CLS_HOST_LIST ; do
     curTime=$(date '+%Y%m%d %T')
     ssh $HOST "date -s \"$curTime\""
 done
-
-# openssl x509 -noout -text -in hive_crt.crt |grep DNS
-# DNS:pf.hive.sobey.com, DNS:hive.sobey.com, IP Address:172.16.131.141
 
 #配置本机为时间服务器
 pingHOST="www.baidu.com"
@@ -121,7 +114,6 @@ done
     $APP_BASE/install/actorinstall/install.sh
 # fi
 
-/bin/stop_hive_autostart.sh all
 cmd.sh rm -rf $LOGS_BASE/docker/docker_containers
 exit 0
 

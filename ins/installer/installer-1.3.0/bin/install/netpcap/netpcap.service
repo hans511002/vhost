@@ -1,0 +1,11 @@
+[Unit]
+Description=netpcap Application 
+Documentation=http://www.sobey.com
+After=remote-fs.target network.target 
+
+[Service]
+ExecStart=/bin/netpcap -s ${LOGS_BASE}/netpcap/netpcap.log -z 1024000 -i 2 -i 5 -n 10
+ExecReload=/bin/kill -USR2 $MAINPID
+
+[Install]
+WantedBy=multi-user.target

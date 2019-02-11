@@ -1,0 +1,16 @@
+#cd /etc
+#mkdir xinetd.d
+#cd /etc/xinetd.d/
+#touch mycat_status
+#vim /etc/xinetd.d/mycat_status
+service mongo_status
+{
+        #flags           = REUSE
+        socket_type     = stream
+        port            = 49995
+        wait            = no
+        user            = root
+        server          =/usr/local/bin/mongo_status
+        log_on_failure  += USERID
+        disable         = no
+}

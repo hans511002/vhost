@@ -1,0 +1,187 @@
+#!/bin/bash     
+. /etc/bashrc
+
+BIN=`dirname "${BASH_SOURCE-$0}"`
+BIN=`cd "$BIN">/dev/null; pwd`
+
+# 1.0 不安装DNS
+if [ "$INSTALL_DNS" != "true" ] ; then
+    exit 0
+fi
+
+RUNED=`ps -ef|grep "$BIN/dns_ddns.sh"|grep -v grep|grep "/bin/bash" |wc -l `
+if [ "$RUNED" != "" ]; then
+    if [ "$RUNED" -gt 2  ]; then
+    echo "ruuned $RUNED"
+       exit 1
+    fi
+fi
+. $APP_BASE/install/funs.sh
+
+# // not install ka
+installKEEPALIVED=`check_app keepalived`
+
+proDomain=$(echo "$PRODUCT_DOMAIN" | awk -F. '{print $1}') 
+rootDomain=${PRODUCT_DOMAIN/$proDomain./}
+echo "rootDomain=$rootDomain"
+cfgFile="/etc/named/$rootDomain.key"
+nsFile="/var/named/${rootDomain}.zone"
+
+KA_HOSTS_ARR=(${dns_hosts//,/ })
+KA_HOSTS_IP_ARR=(${dns_ips//,/ })
+KA_HOSTS_STATE=
+
+KA_COUNT=${#KA_HOSTS_ARR[@]}
+for ((i=0; i <KA_COUNT;i++ )) do
+    KA_HOSTS_STATE[$i]=$(testHostNamed ${KA_HOSTS_IP_ARR[$i]})
+done
+
+if [ -f "/tmp/dns_state" ] ; then
+    OLD_KA_HOSTS_STATE=($(cat /tmp/dns_state))
+fi
+
+echo "${KA_HOSTS_STATE[@]}">/tmp/dns_state
+
+echo "${OLD_KA_HOSTS_STATE[*]}"
+echo "${KA_HOSTS_STATE[*]}"
+
+
+
+DNS_MASTER_IP=$NEBULA_VIP
+if [ "$installKEEPALIVED" != "true" ] ; then
+    # find dns master
+    DNS_MASTER_IP=""
+    EXISTS_DNMASTERS=""
+    LAST_ACTIVE_HOST=""
+    for ((i=0; i <KA_COUNT;i++ )) do
+        if [ "${KA_HOSTS_STATE[$i]}" = "true" ] ; then
+            dnsMasterStatus=`ssh ${KA_HOSTS_IP_ARR[$i]} cat $cfgFile |grep -v "#"|grep master|grep type`
+            if [ "$dnsMasterStatus" != "" ] ; then
+                 if [ "$EXISTS_DNMASTERS" = "" ] ; then
+                    EXISTS_DNMASTERS="${KA_HOSTS_IP_ARR[$i]}"
+                 else
+                    EXISTS_DNMASTERS="$EXISTS_DNMASTERS ${KA_HOSTS_IP_ARR[$i]}"
+                    DNS_MASTER_IP="more"
+                 fi
+            fi
+            LAST_ACTIVE_HOST="${KA_HOSTS_IP_ARR[$i]}"
+        fi
+    done
+    echo "EXISTS_DNMASTERS=$EXISTS_DNMASTERS"
+    if [ "$DNS_MASTER_IP" = "more" ] ; then
+        DNS_MASTER_IP=""
+        EXISTS_DNMASTERS=($EXISTS_DNMASTERS)
+        MA_COUNT=${#EXISTS_DNMASTERS[@]}
+        MDNS=
+        MINDNS=
+        MINDNS_INDEX=-1
+        LASTMASTER=
+        for ((i=0; i <MA_COUNT;i++ )) do
+             MDNS[$i]=` ssh ${EXISTS_DNMASTERS[$i]} service named status|grep "active (running)"|sed -e 's/.*since//' |awk '{print $2$3}'`
+             if [ "$MINDNS" = "" ] ; then
+                MINDNS=MDNS[$i]
+                MINDNS_INDEX=$i
+             elif [ "$MDNS[$i]" != "" -a "$MINDNS" > "$MDNS[$i]" ] ; then
+                MINDNS=MDNS[$i]
+                MINDNS_INDEX=$i
+             fi
+             LASTMASTER=$i
+        done
+        if [ "$MINDNS_INDEX" -gt "-1" ] ; then
+            DNS_MASTER_IP="${EXISTS_DNMASTERS[$MINDNS_INDEX]}"
+            for ((i=0; i <MA_COUNT;i++ )) do
+                if [ "$MINDNS_INDEX" -ne "$i" ] ; then
+                     ssh ${EXISTS_DNMASTERS[$i]}  $APP_BASE/install/dns_ka.sh "slave" "$rootDomain" \"$DNS_MASTER_IP\"  
+                fi
+            done
+        else
+            MINDNS_INDEX=$LASTMASTER
+            DNS_MASTER_IP="${EXISTS_DNMASTERS[$MINDNS_INDEX]}"
+            for ((i=0; i <MA_COUNT;i++ )) do
+                if [ "$LASTMASTER" -ne "$i" ] ; then
+                     ssh ${EXISTS_DNMASTERS[$i]}  $APP_BASE/install/dns_ka.sh "slave" "$rootDomain" \"$DNS_MASTER_IP\"  
+                else
+                     ssh ${EXISTS_DNMASTERS[$i]}  $APP_BASE/install/dns_ka.sh "master" "$rootDomain" \"$DNS_MASTER_IP\" 
+                fi
+            done
+        fi
+        echo "DNS_MASTER_IP=$DNS_MASTER_IP"
+    else
+        DNS_MASTER_IP="$EXISTS_DNMASTERS"
+        if [ "$DNS_MASTER_IP" = "" ] ; then
+            DNS_MASTER_IP="$LAST_ACTIVE_HOST"
+            ssh $DNS_MASTER_IP  $APP_BASE/install/dns_ka.sh "master" "$rootDomain"  \"$DNS_MASTER_IP\"  
+            for ((i=0; i <KA_COUNT;i++ )) do
+                if [ "${KA_HOSTS_IP_ARR[$i]}" != "$DNS_MASTER_IP" ] ; then
+                    ssh ${KA_HOSTS_IP_ARR[$i]}  $APP_BASE/install/dns_ka.sh "slave" "$rootDomain"   \"$DNS_MASTER_IP\" 
+                fi
+            done
+        fi
+        echo "DNS_MASTER_IP=$DNS_MASTER_IP"
+    fi
+else
+    for ((i=0; i <KA_COUNT;i++ )) do
+        if [ "${KA_HOSTS_STATE[$i]}" = "true" ] ; then
+            dnsMasterStatus=`ssh ${KA_HOSTS_IP_ARR[$i]} ip a|grep $NEBULA_VIP`
+            if [ "$dnsMasterStatus" != "" ] ; then
+                  DNS_MASTER_IP=${KA_HOSTS_IP_ARR[$i]} 
+            fi
+         fi
+    done
+    echo "DNS_MASTER_IP=$DNS_MASTER_IP"
+fi
+chown named:named -R /var/named
+
+scp $DNS_MASTER_IP:$nsFile $nsFile.bak
+scp $DNS_MASTER_IP:$nsFile ${LOGS_BASE}/haproxy/${rootDomain}.zone.`date +%Y%m%d`
+
+if [ "${OLD_KA_HOSTS_STATE[*]}" = "${KA_HOSTS_STATE[*]}" ] ; then
+    echo "not change"
+    exit 0
+fi
+
+priKey="vQ9U23WtJg2C9RaEItv42AaI/aECSiKW7oszg6IWQFoyQ49Rex/KRl3PWaBdLyty/ofaYhy/DxvjnP2T7HEFcw=="
+for ((i=0; i <KA_COUNT;i++ )) do
+    if [ "${OLD_KA_HOSTS_STATE[$i]}" = "" ] ; then
+        OLD_KA_HOSTS_STATE[$i]="true"
+    fi
+    if [ "${KA_HOSTS_STATE[$i]}" = "false" -a "${OLD_KA_HOSTS_STATE[$i]}" = "true"  ] ; then # del
+        echo "del $PRODUCT_DOMAIN dns with host ${KA_HOSTS_IP_ARR[$i]}  "
+        nsupdate -y ${rootDomain//./}:$priKey <<EOF
+server $DNS_MASTER_IP
+zone $rootDomain
+update delete $PRODUCT_DOMAIN. IN A ${KA_HOSTS_IP_ARR[$i]}
+send
+show
+quit
+EOF
+#        echo "sed -i -e \"s/.*${KA_HOSTS_IP_ARR[$i]}.*/;\0/\" /var/named/sobey.com.pf.zones"
+#        sed -i -e "s/.*${KA_HOSTS_IP_ARR[$i]}.*/;\0/" /var/named/sobey.com.pf.zones
+        DNS_CHANGED="true" 
+    elif [ "${KA_HOSTS_STATE[$i]}" = "true" -a "${OLD_KA_HOSTS_STATE[$i]}" = "false"  ] ; then # add
+        echo "add $PRODUCT_DOMAIN dns to host ${KA_HOSTS_IP_ARR[$i]}    "
+        nsupdate -y ${rootDomain//./}:$priKey <<EOF
+server $DNS_MASTER_IP
+zone $rootDomain
+update add $PRODUCT_DOMAIN. 5 IN A ${KA_HOSTS_IP_ARR[$i]}
+send
+show
+quit
+EOF
+#        echo "sed -i -e \"s/;\(.*${KA_HOSTS_IP_ARR[$i]}.*\)/\1/\" /var/named/sobey.com.pf.zones"
+#        sed -i -e "s/;\(.*${KA_HOSTS_IP_ARR[$i]}.*\)/\1/" /var/named/sobey.com.pf.zones
+        DNS_CHANGED="true" 
+    fi
+done
+
+#if [ "$DNS_CHANGED" = "true" ] ; then
+#    echo "dns config changed restart named service "
+#    echo "systemctl restart  named.service"
+#    systemctl restart  named.service
+#fi
+
+exit 0
+#sed '0,/natg/{/natg/d}' /var/named/sobey.com.pf.zones 
+#/var/named/sobey.com.pf.zones
+#sed   -e "s/*172.16.131.34*/;\1/" /var/named/sobey.com.pf.zones
+#sed   -e "s/;\(.*172.16.131.34.*\)/\1/" /var/named/sobey.com.pf.zones

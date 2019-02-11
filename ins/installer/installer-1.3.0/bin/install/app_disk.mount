@@ -1,0 +1,27 @@
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=app Directory
+#SourcePath=/etc/fstab
+Documentation=man:fstab(5) man:systemd-fstab-generator(8)
+Documentation=http://www.freedesktop.org/wiki/Software/systemd/APIFileSystems
+DefaultDependencies=no
+Conflicts=umount.target
+Before=local-fs.target tmp.mount dev-mqueue.mount dev-hugepages.mount sys-kernel-debug.mount umount.target
+
+   
+[Mount]
+What=/dev/mapper/appvg-applv
+Where=/app
+Type=xfs
+#Options=rw,relatime,attr2m,auto,inode64,noquota 0 0
+
+
+# Make 'systemctl enable app_disk.mount' work:
+[Install]
+WantedBy=local-fs.target docker.service keepalived.service xinetd.service

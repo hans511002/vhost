@@ -1,0 +1,31 @@
+#!/bin/bash
+ 
+. /etc/bashrc
+bin=`dirname "${BASH_SOURCE-$0}"`
+bin=`cd "$bin">/dev/null; pwd`
+psefIds=`ps -ef| grep $bin/zk_status |grep -v $$ | grep -v grep | awk '{printf("%s ", $2);}' `
+if [ "$psefIds" != "" ] ; then
+    pis=($psefIds)
+    if [ ${#pis[@]} -gt 10 ] ; then
+        kill -9 $psefIds
+    fi
+fi
+res=1
+if [ `ss -ntl | grep LISTEN | awk '/:2181/{print $4}' | grep '2181$' | wc -l` -eq 1 ]; then
+    ZK_OUT=$($bin/readLocalZkData.sh ls / 2>&1 )
+    ZK_STATUS=`echo $ZK_OUT |grep zookeeper |wc -l`
+    echo "$ZK_OUT ">/var/zk_status
+    echo "ZK_STATUS=$ZK_STATUS ">>/var/zk_status
+
+    if [[ $ZK_STATUS = 1 ]] ; then
+        echo -e "HTTP/1.1 200 OK\r\n"
+        res=0
+    else
+    	echo -e "HTTP/1.1 503 Service Unavailable\r\n"
+    	res=1
+    fi
+else
+	echo -e "HTTP/1.1 503 Service Unavailable\r\n"
+	res=1
+fi
+exit $res

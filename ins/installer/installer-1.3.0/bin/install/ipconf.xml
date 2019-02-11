@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config>
+	<VIP></VIP>
+	<LOCAL_IP></LOCAL_IP>
+	<LOCAL_HOSTNAME></LOCAL_HOSTNAME>
+	<DOMAIN_NAME></DOMAIN_NAME>
+	<APP_NODES></APP_NODES>
+</config>

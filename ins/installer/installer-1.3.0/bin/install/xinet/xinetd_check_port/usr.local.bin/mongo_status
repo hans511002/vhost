@@ -1,0 +1,17 @@
+#!/bin/bash
+#/usr/local/bin/mysql_status.sh
+# This script checks if a mycat server is healthy running on localhost. It will
+# return:
+#
+# "HTTP/1.x 200 OK\r" (if mycat is running smoothly)
+#
+# "HTTP/1.x 503 Internal Server Error\r" (else)
+#mycat=`ps aux | grep "mongo/" | wc -l`
+
+if [ `ss -ntl | grep LISTEN | awk '/:27017/{print $4}' | grep '27017$' | wc -l` -eq 1 ]; then
+    echo -e "HTTP/1.1 200 OK\r\n"
+    exit 0
+else
+    echo -e "HTTP/1.1 503 Service Unavailable\r\n"
+    exit 1
+fi

@@ -1,6 +1,6 @@
 #!/usr/bin/expect
 
-#createselfsignedcertificate.sh hans /sobeyhive/app/install/crt hive_crt /etc/haproxy/test2 /etc/haproxy/test2/v3.cnf /etc/haproxy/test2/v3.ext 
+#createselfsignedcertificate.sh hans ${APP_BASE}/install/crt hive_crt /etc/haproxy/test2 /etc/haproxy/test2/v3.cnf /etc/haproxy/test2/v3.ext 
 
 
 #openssl req -new -sha256 -nodes -out server.csr -newkey rsa:2048 -keyout server.key -config <( cat v3.cnf )

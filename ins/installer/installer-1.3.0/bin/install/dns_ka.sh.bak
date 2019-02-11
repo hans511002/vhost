@@ -1,0 +1,67 @@
+#!/bin/bash
+. /etc/bashrc
+
+# 1.0 不安装DNS
+if [ "$INSTALL_DNS" != "true" ] ; then
+    exit 0
+fi
+
+if [ "$#" -lt "3" ] ; then
+    echo "usetag:ipprefix IPIDS name hostlist rootdoman
+    ex: dns_ka.sh \"master/slave\" \"rootDomain\"  \"allHostIP\" "
+    exit 1
+fi
+echo "$HOSTNAME dns_ka.sh $@"
+
+dnsrole=$1
+rootDomain=$2
+allHostIP=$3
+
+priKey="vQ9U23WtJg2C9RaEItv42AaI/aECSiKW7oszg6IWQFoyQ49Rex/KRl3PWaBdLyty/ofaYhy/DxvjnP2T7HEFcw=="
+cfgFile="/etc/named/$rootDomain.key"
+nsFile="/var/named/${rootDomain}.zone"
+
+allHostIP="${allHostIP//,/ }"
+if [ "$dnsrole" != "master" -a "$dnsrole" != "slave" ] ; then
+    echo  "dns_ka.sh \"master/slave\" \"$rootDomain\"  \"$allHostIP\"  "
+    exit 1
+fi
+HOSTIPS=`hostname -I`
+masters=""
+if [ "$dnsrole" = "slave"  ] ; then
+    masters="masters {"
+    for hostIP in $allHostIP ; do
+        if [ "${HOSTIPS//$hostIP/}" = "$HOSTIPS" ] ; then
+            masters="$masters
+            $hostIP;"
+        fi
+    done
+    masters="$masters
+        };
+     "
+     echo "$HOSTNAME masters=$masters"
+else
+   . ${APP_BASE}/install/funs.sh 
+   if [ "`getFileEncode $nsFile.bak`" = "ASCII" ] ; then
+      scp $nsFile.bak $nsFile
+   else   
+      scp ${LOGS_BASE}/haproxy/${rootDomain}.zone.`date +%Y%m%d` $nsFile
+   fi
+fi
+
+echo "zone \"$rootDomain\" IN {
+    type $dnsrole;
+    ${masters}file \"$nsFile\";
+    allow-update { any; };
+    allow-query { any; };
+    notify yes;
+};
+key \"${rootDomain//./}\" {
+    algorithm hmac-md5;
+    secret \"$priKey\";
+};
+" > $cfgFile
+
+chown -R named:named /var/named
+#use last zone 
+systemctl reload named

@@ -1,0 +1,11 @@
+[Unit]
+Description=sobeyhive Application Deploy Engine
+Documentation=http://www.sobey.com
+After=remote-fs.target network.target docker.service sobeyhive.service haproxy.service named.service
+
+[Service]
+ExecStart=/etc/init.d/hive_dns_daemon.sh
+ExecReload=/bin/kill -USR2 $MAINPID
+
+[Install]
+WantedBy=multi-user.target

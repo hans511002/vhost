@@ -1,0 +1,11 @@
+[Unit]
+Description=netpcap Application 
+Documentation=http://www.sobey.com
+After=remote-fs.target network.target 
+
+[Service]
+ExecStart=/etc/init.d/netpcap.sh
+ExecReload=/bin/kill -USR2 $MAINPID
+
+[Install]
+WantedBy=multi-user.target

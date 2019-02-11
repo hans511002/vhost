@@ -20,13 +20,18 @@ fi
 echo "
 export APP_ETC=/etc/app
 export INSTALL_ROOT=${app_install_path_base}
+export INS_BASE=$INSTALL_ROOT
 export APP_BASE=${app_install_path_app_dir}
 export DATA_BASE=${app_install_path_data_dir}
 export LOGS_BASE=${app_install_path_logs_dir}
+export SHARED_PATH=/sharedfs
+
 export VIP=${NEBULA_VIP}
 export NEBULA_VIP=${NEBULA_VIP}
-export PRODUCT_DOMAIN=${PRODUCT_DOMAIN:=pf.hive.sobey.com}
+export PRODUCT_DOMAIN=${PRODUCT_DOMAIN:=pf.ery.com}
 export STORAGE_DOMAIN=${STORAGE_DOMAIN}
+export ROOT_DOMAIN=`echo "$PRODUCT_DOMAIN"|sed -e "s|\w*\.||"`
+
 #export DOCKER_NETWORK_NAME=--net=${DOCKER_NETWORK_NAME}
 export DOCKER_NETWORK_HOSTS=\"${DOCKER_NETWORK_HOSTS}\"
 export DOCKER_OTHER_PARAMS=\" -v ${APP_BASE}/ipconf.xml:/ipconf.xml:ro -v ${APP_BASE}/publicsetting.xml:/publicsetting.xml:ro -v /etc/localtime:/etc/localtime:ro \"

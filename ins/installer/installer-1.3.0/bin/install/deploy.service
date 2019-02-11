@@ -1,0 +1,12 @@
+[Unit]
+Description=sobeyhive Application Deploy Engine
+Documentation=http://www.sobey.com
+After=remote-fs.target network.target docker.service sobeyhive.service
+
+[Service]
+ExecStart=/etc/init.d/deploy.sh start
+ExecReload=/bin/kill -USR2 $MAINPID
+ExecStop=/etc/init.d/deploy.sh stop $MAINPID
+
+[Install]
+WantedBy=multi-user.target

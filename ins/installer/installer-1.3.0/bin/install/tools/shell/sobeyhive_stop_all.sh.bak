@@ -1,0 +1,97 @@
+#!/bin/bash
+
+. /etc/bashrc
+. $APP_BASE/install/funs.sh
+
+#==================停止所有服务=======================
+#sobeyhive daemon
+stop_hive_autostart.sh "all"
+
+#sobeyhive service
+cmd.sh systemctl stop deploy
+cmd.sh systemctl stop sobeyhive
+cmd.sh systemctl stop shostname
+cmd.sh systemctl stop hivedns
+
+function getCheckScript() {
+    app=$1
+    appHosts=`env | grep ${app}_hosts | awk -F= '{print $NF}'`
+    appHosts=(${appHosts//,/ })
+    checkScript=(`ssh ${appHosts[0]} "ls ${appHome}/sbin/check_${app}*_cluster*.sh 2>/dev/null" | grep '\.sh$'`)
+    if [ "${#checkScript[@]}" = "1" ]; then
+        echo ${checkScript[0]}
+    fi
+}
+
+#按照启动顺序排列
+allApps="zookeeper,keepalived,haproxy,docker,registry,installer,paasman,galaxy,mysql,mycat,mongo,redis,codis,kafka,eagles,logstash,nump,cayman,mamcore,hivecore,hivepmp,sobeyficus_eureka,sobeyficus_config_server,sobeyficus,sobeyficus_admin_ui,kibana,ftengine2,nebula,cmserver,cmweb,ingestdbsvr,ingestmsgsvr,ingesttasksvr,mosgateway,jove,otcserver,floatinglicenseserver,pns,infoshare,ntag,articleeditor,h5,infosharecloud,omniocp,omniportal,omnizhihui,wxeditor,search,interview,taskmonitoring,planning,messagecenter,bridge,megateway,mhqapp"
+localApps="zookeeper,keepalived,haproxy,docker,installer,nump"
+
+ctlArgs=stop
+pingVIP=false
+allApps=${allApps//,/ }
+localApps=${localApps//,/ }
+
+if [ "$ctlArgs" = "stop" ]; then
+    revApps=
+    tmpApps=
+    for app in $allApps; do
+        revApps="$app $tmpApps"
+        tmpApps=$revApps
+    done
+    allApps=$revApps
+
+    revApps=
+    tmpApps=
+    for app in $localApps; do
+        revApps="$app $tmpApps"
+        tmpApps=$revApps
+    done
+    localApps=$revApps
+fi
+
+for app in $allApps; do
+    sleep 0.2
+    [[ "$app" = "installer" ]] && continue
+    appHome=`getAppHome $app`
+    if [ "`check_app $app`" = "true" ]; then
+        #other containers
+        if [ "$ctlArgs" = "stop" -a "$app" = "docker" ]; then
+            echo -e "\033[1;34m==================================================> $ctlArgs other containers <==================================================\033[0m"
+            for host in ${docker_hosts//,/ }; do
+                ssh $host "docker ps -a | grep 'Up' | awk '{print \$NF}' | xargs docker $ctlArgs 2>/dev/null"
+                sleep 0.5
+            done
+        fi
+
+        echo -e "\033[1;34m==================================================> $ctlArgs $app <==================================================\033[0m"
+        if [[ "$localApps" =~ "$app" ]]; then
+            if [ "$app" = "zookeeper" ]; then
+                runAppOnFisrtHost $app "${appHome}/sbin/${ctlArgs}-zk.sh"
+            else
+                cmdCTL="systemctl $ctlArgs $app"
+                runHOSTCMD $app "$cmdCTL"
+            fi
+        else
+            cmdCTL="${appHome}/sbin/${ctlArgs}_${app}_cluster.sh"
+            runAppOnFisrtHost $app "$cmdCTL"
+        fi
+
+        #判断是否有check脚本,有则执行
+        if [ "$ctlArgs" = "start" ]; then
+            checkScript=`getCheckScript $app`
+            if [ -n "$checkScript" ]; then
+                sleep 2
+                runAppOnFisrtHost $app "${checkScript}"
+            fi
+        fi
+
+        #ping $NEBULA_VIP
+        if [ "$ctlArgs" = "start" -a "$pingVIP" = "true" ]; then
+            [[ "$app" = "keepalived" ]] || [[ $ALL_APP != *keepalived* ]] &&
+            echo -e "\033[1;34m==================================================> ping \$NEBULA_VIP <==================================================\033[0m" &&
+            { [[ "`ping -W 10 -c 10 $NEBULA_VIP >/dev/null 2>&1; echo $?`" = "0" ]] && pingVIP=false || { echo "[ERROR]: ping $NEBULA_VIP"; exit 1; } }
+        fi
+    fi
+done
+

@@ -1,0 +1,25 @@
+#!/bin/bash
+. /etc/bashrc
+ppidcmdline=`cat /proc/$PPID/cmdline `
+
+if [ "${ppidcmdline}" != "${ppidcmdline//mysql_status/}" ] ; then
+    psefIds=`ps -ef| grep sbin/check_mysql.sh |grep -v $$ | grep -v grep | awk '{printf("%s,%s ", $2,$3);}' `
+    if [ "$psefIds" != "" ] ; then
+        for pid in $psefIds ; do
+            ppid=${pid//*,/}
+            pid=${pid//,*/}
+            if [ "$pid" != "$$" ] ; then
+                ppidcmdline=`cat /proc/$ppid/cmdline `
+                if [ "${ppidcmdline}" != "${ppidcmdline//mysql_status/}" ] ; then
+                    kill -9 $pid 2>/dev/null
+                fi
+            fi
+        done
+        #pis=($psefIds)
+        #if [ ${#pis[@]} -gt 10 ] ; then
+        #    kill -9 $psefIds
+        #fi
+    fi
+fi
+
+. $MYSQL_HOME/sbin/check_mysql.sh
