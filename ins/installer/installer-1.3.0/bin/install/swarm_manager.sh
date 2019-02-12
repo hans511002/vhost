@@ -24,7 +24,7 @@ getManagerNode(){
     for HOST in ${CLUSTER_HOST_LIST//,/ } ; do
         if [ "$HOST" != "$LOCAL_HSOT" -a "$HOST" != "`hostname`" ] ; then
             swarmStaus=`  ssh $HOST  docker info 2>/dev/null|grep " Is Manager"|awk '{print $3}' `
-            if [ "$swarmStaus" = "true"  ] ; then  # �ҵ�manager
+            if [ "$swarmStaus" = "true"  ] ; then  #  manager
                 echo "$HOST"
                 break
             fi
@@ -32,7 +32,7 @@ getManagerNode(){
     done
     if [ "$swarmStaus" = "" ] ; then
         swarmStaus=`docker info 2>/dev/null|grep " Is Manager"|awk '{print $3}' `
-        if [ "$swarmStaus" = "true" ] ; then # δ���뼯Ⱥ
+        if [ "$swarmStaus" = "true" ] ; then  
             echo "$HOSTNAME"
         fi
     fi
@@ -78,15 +78,19 @@ addHostToSwarm(){
         printHelp
         exit 1
     fi
-    CLUSTERLIST="${CLUSTERLIST:=$CLUSTER_HOST_LIST}"
+#    CLUSTERLIST="${CLUSTERLIST:=$CLUSTER_HOST_LIST}"
     managerNode=`getManagerNode`
+    if [ "$managerNode" = "" ] ; then
+        echo "not get swarm manager node"
+        exit 1
+    fi 
     swarmInitStaus=""
     if [ "$managerNode" != "" ] ; then
         swarmInitStaus=`  ssh $managerNode  docker swarm join-token $roleType  2>&1 |grep -v "command:" |sed -e 's|\\\\||'`
         swarmInitStaus=`echo $swarmInitStaus` # del \n
     fi
     echo "swarmInitStaus=$swarmInitStaus"
-    if [ "$swarmInitStaus" != "${swarmInitStaus/--token/}" ] ; then  # �ҵ�manager
+    if [ "$swarmInitStaus" != "${swarmInitStaus/--token/}" ] ; then  # manager
         for HOST in ${CLUSTERLIST//,/ } ; do
             dockerStatus=`ssh $HOST service docker status|grep Active:|grep running`
             if [ "$dockerStatus" = "" ] ; then
@@ -145,26 +149,23 @@ fi
 COMMAND=$1
 shift
 
+if [ "$COMMAND" = "addhost" -o "$COMMAND" = "node" -o "$COMMAND" = "service" -o "$COMMAND" = "swarm" -o "$COMMAND" = "docker"  ]; then
+    checkClusterEnv
+    export managerNode=`getManagerNode`
+    if [ "$managerNode" = "" ] ; then
+        echo "not get swarm manager node"
+        exit 1
+    fi
+fi
+    
 if [ "$COMMAND" = "init" ]; then
    init $@
 elif [ "$COMMAND" = "addhost" ]; then
     addHostToSwarm $@
-elif [ "$COMMAND" = "node" ]; then
-    checkClusterEnv
-    managerNode=`getManagerNode`
-    ssh $managerNode docker node $@
-elif [ "$COMMAND" = "service" ]; then
-    checkClusterEnv
-    managerNode=`getManagerNode`
-    ssh $managerNode docker service $@
-elif [ "$COMMAND" = "swarm" ]; then
-    checkClusterEnv
-    managerNode=`getManagerNode`
-    ssh $managerNode docker swarm $@
+elif [ "$COMMAND" = "node"  -o "$COMMAND" = "service" -o "$COMMAND" = "swarm" ]; then
+    ssh $managerNode docker $COMMAND $@
 elif [ "$COMMAND" = "docker" ]; then
-    checkClusterEnv
-    managerNode=`getManagerNode`
-    ssh $managerNode docker $@
+     ssh $managerNode docker $@
 elif [ "$COMMAND" != "" ]; then
     ssh $COMMAND $@
 fi
