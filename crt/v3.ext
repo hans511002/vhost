@@ -1,0 +1,11 @@
+authorityKeyIdentifier=keyid,issuer
+basicConstraints=CA:FALSE
+keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+subjectAltName = @alt_names
+
+[alt_names]
+DNS.1=pf.ery.com
+DNS.2=ery.com
+DNS.3=*.pf.ery.com
+DNS.4=localhost
+IP.1=155.138.165.196
