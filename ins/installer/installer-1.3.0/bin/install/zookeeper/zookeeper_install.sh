@@ -48,8 +48,8 @@ for host in $hostIds; do
  HID=(${host//=/ })
    ZOOKEEPER_URL="$ZOOKEEPER_URL,${HID[1]}:$CLIENT_PORT"
 done
-echo ZOOKEEPER_URL=$ZOOKEEPER_URL
 ZOOKEEPER_URL=${ZOOKEEPER_URL//,,/}
+echo ZOOKEEPER_URL=$ZOOKEEPER_URL
 
 FISRTHOST=`echo $CLUSTER_HOST_LIST|awk '{print $1}'`
 #À©ÈÝ°²×°
@@ -58,11 +58,11 @@ if [ "$ADD_HOSTS" != "" ] ; then
     FISRTHOST=`echo $ADD_HOSTS|awk '{print $1}'`
 fi
 
-echo "export KEEP_SNAPSLOGS_COUNT=100 ">>/etc/profile.d/zookeeper.sh 
-echo "export ZOO_LOG_DIR=\"$LOGS_DIR\" ">>/etc/profile.d/zookeeper.sh 
+echo "export KEEP_SNAPSLOGS_COUNT=100 ">>/etc/profile.d/$APP_NAME.sh 
+echo "export ZOO_LOG_DIR=\"$LOGS_DIR\" ">>/etc/profile.d/$APP_NAME.sh 
 
 for HOST in $CLUSTER_HOST_LIST ; do
-	ssh $HOST "echo 'export ZOOKEEPER_URL=\"$ZOOKEEPER_URL\"'>>/etc/profile.d/zookeeper.sh"
+	ssh $HOST "echo 'export ZOOKEEPER_URL=\"$ZOOKEEPER_URL\"'>>/etc/profile.d/$APP_NAME.sh"
 done
 
 for zookeeper in $hostIds; do
@@ -91,33 +91,34 @@ if [ "$?" = "0" ] ; then
         useDocker=true
     fi 
 fi 
+echo dockImgs="$dockImgs"
 
 if [ "$useDocker" != "true" ] ; then
     jps|grep QuorumPeerMain|awk '{print $1}'|xargs kill -9 2>/dev/null
-    echo '#!/bin/bash
+    echo "#!/bin/bash
 . /etc/bashrc
-. $APP_BASE/install/funs.sh
+. \$APP_BASE/install/funs.sh
 
-appHome=$(dirname $(cd $(dirname $0); pwd))
-appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
-if [ "$1" = "restart" ] ; then
-   $ZOOKEEPER_HOME/bin/zkServer.sh stop
+appHome=\$(dirname \$(cd \$(dirname \$0); pwd))
+appName=\$(echo \${appHome##*/} | awk -F '-' '{print \$1}' )
+if [ \"\$1\" = \"restart\" ] ; then
+   \$ZOOKEEPER_HOME/bin/zkServer.sh stop
 fi 
-$ZOOKEEPER_HOME/bin/zkServer.sh start
-'>$APP_HOME/sbin/start_zookeeper.sh
+\$ZOOKEEPER_HOME/bin/zkServer.sh start
+">$APP_HOME/sbin/start_zookeeper.sh
 
-echo '#!/bin/bash
+echo "#!/bin/bash
 . /etc/bashrc
-. $APP_BASE/install/funs.sh
+. \$APP_BASE/install/funs.sh
 
-appHome=$(dirname $(cd $(dirname $0); pwd))
-appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
-$ZOOKEEPER_HOME/bin/zkServer.sh stop 
-'>$APP_HOME/sbin/stop_zookeeper.sh
+appHome=\$(dirname \$(cd \$(dirname \$0); pwd))
+appName=\$(echo \${appHome##*/} | awk -F '-' '{print \$1}')
+\$ZOOKEEPER_HOME/bin/zkServer.sh stop 
+">$APP_HOME/sbin/stop_zookeeper.sh
 
 else
     runFile=${APP_BASE}/install/$APP_NAME/$APP_NAME-$APP_VERSION-run.sh 
-    echo "!/bin/bash
+    echo "#!/bin/bash
 . /etc/bashrc
 . \${APP_BASE}/install/funs.sh
 checkRunUser ${APP_NAME}
@@ -144,37 +145,37 @@ docker run --name=$APP_NAME --network=host --privileged=true -v $APP_HOME:$APP_H
         fi
         docker rm -f $APP_NAME 2>/dev/null
     done
-
+    echo "sleep 5"
     sleep 5
     docker stop $APP_NAME 
 
-    echo '#!/bin/bash
+    echo "#!/bin/bash
 . /etc/bashrc
-. $APP_BASE/install/funs.sh
-appHome=$(dirname $(cd $(dirname $0); pwd))
-appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
-if [ "$1" = "restart" ] ; then
+. \$APP_BASE/install/funs.sh
+appHome=\$(dirname \$(cd \$(dirname \$0); pwd))
+appName=\$(echo \${appHome##*/} | awk -F '-' '{print \$1}')
+if [ \"\$1\" = \"restart\" ] ; then
     beginErrLog
-    docker stop ${appName}
+    docker stop \${appName}
     writeOptLog
 fi 
 beginErrLog
-docker start ${appName}
+docker start \${appName}
 writeOptLog
 
-'>$APP_HOME/sbin/start_zookeeper.sh
+">$APP_HOME/sbin/start_zookeeper.sh
 
-echo '#!/bin/bash
+echo "#!/bin/bash
 . /etc/bashrc
-. $APP_BASE/install/funs.sh
+. \$APP_BASE/install/funs.sh
 
-appHome=$(dirname $(cd $(dirname $0); pwd))
-appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
+appHome=\$(dirname \$(cd \$(dirname \$0); pwd))
+appName=\$(echo \${appHome##*/} | awk -F '-' '{print \$1}')
 beginErrLog
-docker stop ${appName}
+docker stop \${appName}
 writeOptLog
 
-'>$APP_HOME/sbin/stop_zookeeper.sh
+">$APP_HOME/sbin/stop_zookeeper.sh
 
 fi 
 
