@@ -86,7 +86,7 @@ echo "$HOST_ID" > $DATA_DIR/myid
 useDocker=false
 dockImgs=`docker images`
 if [ "$?" = "0" ] ; then
-    dockImgs=`echo "$dockImgs"|grep -v IMAGE|awk '{printf("%s:%s\n",$1,$2)}'|grep jdk:1.8 |tail -n 1`
+    dockImgs=`echo "$dockImgs"|grep -v IMAGE|awk '{printf("%s:%s\n",$1,$2)}'|grep "jdk:1."|sort -V |tail -n 1`
     if [ "$dockImgs" != "" ] ; then
         useDocker=true
     fi 

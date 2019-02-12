@@ -1,5 +1,5 @@
 #centos base
-FROM hans/centos
+FROM centos
 ENV TERM Xterm
 ADD files/0alias.sh /etc/profile.d/ 
 RUN localedef -i zh_CN -f UTF-8 -A /usr/share/locale/locale.alias zh_CN && localedef -i en_US -f UTF-8 -A /usr/share/locale/locale.alias en_US \
