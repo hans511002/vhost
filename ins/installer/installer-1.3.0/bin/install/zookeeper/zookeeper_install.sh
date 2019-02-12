@@ -1,27 +1,29 @@
 #! /usr/bin/env bash
 #
-if [ $# -lt 4 ] ; then
-	echo APP_BASE ZOO_CFG HOST_NAME APP_SRC
+# author: zyg
+# description: 
+#
+#docker run --rm -ti -v ${APP_BASE}/zookeeper-3.4.6:${APP_BASE}/zookeeper-3.4.6 -v \
+#${DATA_BASE}/data/zookeeper:${DATA_BASE}/data/zookeeper  -v ${LOGS_BASE}/logs/zookeeper:${LOGS_BASE}/logs/zookeeper --net=host 
+#centos-jdk:1.8.0 ${APP_BASE}/zookeeper-3.4.6/bin/zkServer.sh start-foreground
+#
+
+if [ $# -lt 3 ] ; then
+	echo HOST_NAME APP_NAME APP_VERSION
 	exit 1
 fi
 
-APP_BASE=$1
-ZOO_CFG=$2
-HOST_NAME=$3
-APP_SRC=$4
+HOST_NAME=$1
+APP_NAME=$2
+APP_VERSION=$3
+ADD_HOSTS=$5
+APP_HOME=${APP_BASE}/$APP_NAME-${APP_VERSION}
+ZOO_CFG=$APP_HOME/conf/zoo.cfg
 
-if [ $# -lt 4 ] ; then
-    echo "APP_BASE ZOO_CFG HOST_NAME APP_SRC "
-	exit 1
-fi
-
-
-ADD_HOSTS=$6
-
-hostIds=$(grep "^[[:space:]]*server.*=" "$ZOO_CFG" | sed -e 's/.*\.//' | sed -e 's/:.*//')
-DATA_DIR=$(grep "^[[:space:]]*dataDir.*=" "$ZOO_CFG" | sed -e 's/dataDir.*=//' | sed -e 's/ //')
-LOGS_DIR=$(grep "^[[:space:]]*dataLogDir.*=" "$ZOO_CFG" | sed -e 's/dataLogDir=//' )
-CLIENT_PORT=$(grep "^[[:space:]]*clientPort.*=" "$ZOO_CFG" | sed -e 's/clientPort.*=//'  | sed -e 's/ //')
+hostIds=$(grep "^[[:space:]]*server.*=" "$ZOO_CFG" | sed -e 's/.*\.//' | sed -e 's/:.*//g')
+DATA_DIR=$(grep "^[[:space:]]*dataDir.*=" "$ZOO_CFG" | sed -e 's/dataDir=//' -e 's/ //g')
+LOGS_DIR=$(grep "^[[:space:]]*dataLogDir.*=" "$ZOO_CFG" | sed -e 's/dataLogDir=//' -e 's/ //g')
+CLIENT_PORT=$(grep "^[[:space:]]*clientPort.*=" "$ZOO_CFG" | sed -e 's/clientPort.*=//'  | sed -e 's/ //g')
 sed -i -e "s|dataLogDir=.*|dataLogDir=$DATA_DIR|" $ZOO_CFG
 
 if [ -z "$hostIds" -o -z "$DATA_DIR" -o -z "$LOGS_DIR" -o -z "CLIENT_PORT" ]; then
@@ -32,14 +34,11 @@ fi
 echo DATA_DIR=$DATA_DIR
 echo LOGS_DIR=$LOGS_DIR
 
-jps|grep QuorumPeerMain|awk '{print $1}'|xargs kill -9 
-
 echo "mkdir -p $DATA_DIR"
 mkdir -p $DATA_DIR
 echo "mkdir -p $LOGS_DIR"
 mkdir -p $LOGS_DIR
-echo "clean zk data "
-rm -rf  $DATA_DIR/*
+
 
 HOST_ID=
 HOST_CLS_PORT=
@@ -52,9 +51,7 @@ done
 echo ZOOKEEPER_URL=$ZOOKEEPER_URL
 ZOOKEEPER_URL=${ZOOKEEPER_URL//,,/}
 
-
-CLS_HOST_LIST=`cat /bin/cmd.sh |grep "for HOST"|sed -e 's/.*for HOST in//' -e 's/;.*//'`
-FISRTHOST=`echo $CLS_HOST_LIST|awk '{print $1}'`
+FISRTHOST=`echo $CLUSTER_HOST_LIST|awk '{print $1}'`
 #À©ÈÝ°²×°
 if [ "$ADD_HOSTS" != "" ] ; then
     ADD_HOSTS=${ADD_HOSTS//,/ }
@@ -64,38 +61,9 @@ fi
 echo "export KEEP_SNAPSLOGS_COUNT=100 ">>/etc/profile.d/zookeeper.sh 
 echo "export ZOO_LOG_DIR=\"$LOGS_DIR\" ">>/etc/profile.d/zookeeper.sh 
 
-for HOST in $CLS_HOST_LIST ; do
+for HOST in $CLUSTER_HOST_LIST ; do
 	ssh $HOST "echo 'export ZOOKEEPER_URL=\"$ZOOKEEPER_URL\"'>>/etc/profile.d/zookeeper.sh"
 done
-
-
-#
-#if [ "$FISRTHOST" = "$HOSTNAME" ] ; then   
-#    for HOST in $CLS_HOST_LIST ; do
-##        ssh $HOST "sed -i -e 's/export ZOOKEEPER_HOME=.*//' /etc/bashrc " 
-##        ssh $HOST "sed -i -e 's/.*ZOOKEEPER_HOME\/sbin//' /etc/bashrc " 
-#
-#        ssh $HOST "sed -i -e 's/export ZOOKEEPER_URL=.*//' /etc/bashrc " 
-#        ssh $HOST "sed -i -e 's/export ZOO_LOG_DIR=.*//' /etc/bashrc " 
-#        ssh $HOST "echo \"export ZOOKEEPER_URL=$ZOOKEEPER_URL\">>/etc/bashrc "  
-#        if [ "${ZOOKEEPER_URL//$host/}" != "$ZOOKEEPER_URL" ] ; then
-#            ssh $HOST "echo \"export ZOO_LOG_DIR=$LOGS_DIR\">>/etc/bashrc "  
-#        fi
-#    done
-# fi
-##sed -i -e 's/export ZOOKEEPER_URL=*//' /etc/bashrc
-##sed -i -e 's/export ZOO_LOG_DIR=*//' /etc/bashrc
-##
-##echo "export ZOOKEEPER_URL=$ZOOKEEPER_URL 
-##export ZOO_LOG_DIR=$LOGS_DIR
-##">> /etc/bashrc
-#
-
-
-appDir=`dirname $APP_SRC`
-appNameVer=${APP_SRC//\.tar.*/}
-appNameVer=${appNameVer//$appDir\//}
-appNameVer=${appNameVer//.*\//}
 
 for zookeeper in $hostIds; do
     HID=(${zookeeper//=/ })
@@ -115,10 +83,99 @@ echo HOST_MAG_PORT=$HOST_MAG_PORT
 echo HOST_NAME=$HOST_NAME HOST_ID=$HOST_ID
 echo "$HOST_ID" > $DATA_DIR/myid
 
-RES=$?
-if [ ! $RES -eq 0 ] ; then  
-exit $RES
-fi
-cd ${APP_BASE} ; tar -xf ${APP_SRC}
+useDocker=false
+dockImgs=`docker images`
+if [ "$?" = "0" ] ; then
+    dockImgs=`echo "$dockImgs"|grep -v IMAGE|awk '{printf("%s:%s\n",$1,$2)}'|grep jdk:1.8 |tail -n 1`
+    if [ "$dockImgs" != "" ] ; then
+        useDocker=true
+    fi 
+fi 
 
-exit $?
+if [ "$useDocker" != "true" ] ; then
+    jps|grep QuorumPeerMain|awk '{print $1}'|xargs kill -9 2>/dev/null
+    echo '#!/bin/bash
+. /etc/bashrc
+. $APP_BASE/install/funs.sh
+
+appHome=$(dirname $(cd $(dirname $0); pwd))
+appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
+if [ "$1" = "restart" ] ; then
+   $ZOOKEEPER_HOME/bin/zkServer.sh stop
+fi 
+$ZOOKEEPER_HOME/bin/zkServer.sh start
+'>$APP_HOME/sbin/start_zookeeper.sh
+
+echo '#!/bin/bash
+. /etc/bashrc
+. $APP_BASE/install/funs.sh
+
+appHome=$(dirname $(cd $(dirname $0); pwd))
+appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
+$ZOOKEEPER_HOME/bin/zkServer.sh stop 
+'>$APP_HOME/sbin/stop_zookeeper.sh
+
+else
+    runFile=${APP_BASE}/install/$APP_NAME/$APP_NAME-$APP_VERSION-run.sh 
+    echo "!/bin/bash
+. /etc/bashrc
+. \${APP_BASE}/install/funs.sh
+checkRunUser ${APP_NAME}
+docker run --name=$APP_NAME --network=host --privileged=true -v $APP_HOME:$APP_HOME -v $DATA_DIR:$DATA_DIR -v $LOGS_DIR:$LOGS_DIR \\
+-d $dockImgs $APP_HOME/bin/zkServer.sh start-foreground
+     " > ${runFile} 
+     chmod +x $runFile
+    docker stop $APP_NAME 2>/dev/null
+    docker rm -f $APP_NAME 2>/dev/null
+    cat $runFile
+         
+    RETRY_NUM=0
+    while [ 1 ] ;  do
+        $runFile
+        echo "sleep 2"
+        sleep 2
+        size=`docker ps |awk '{printf("%s:%s\n",$2,$NF)}' |grep "^$dockImgs:$APP_NAME\$" |wc -l `
+        if [[ "$size" -gt 0 ]] ; then
+           break;
+        fi
+        ((RETRY_NUM++))
+        if [[ $RETRY_NUM -gt 5 ]] ; then
+            exit 1
+        fi
+        docker rm -f $APP_NAME 2>/dev/null
+    done
+
+    sleep 5
+    docker stop $APP_NAME 
+
+    echo '#!/bin/bash
+. /etc/bashrc
+. $APP_BASE/install/funs.sh
+appHome=$(dirname $(cd $(dirname $0); pwd))
+appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
+if [ "$1" = "restart" ] ; then
+    beginErrLog
+    docker stop ${appName}
+    writeOptLog
+fi 
+beginErrLog
+docker start ${appName}
+writeOptLog
+
+'>$APP_HOME/sbin/start_zookeeper.sh
+
+echo '#!/bin/bash
+. /etc/bashrc
+. $APP_BASE/install/funs.sh
+
+appHome=$(dirname $(cd $(dirname $0); pwd))
+appName=$(echo ${appHome##*/} | awk -F \'-\' \'{print $1}\')
+beginErrLog
+docker stop ${appName}
+writeOptLog
+
+'>$APP_HOME/sbin/stop_zookeeper.sh
+
+fi 
+
+chmod +x $APP_HOME/sbin/start_zookeeper.sh $APP_HOME/sbin/stop_zookeeper.sh

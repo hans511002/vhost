@@ -15,6 +15,7 @@ CLUSTER_HOST_LIST="${CLUSTER_HOST_LIST//,/ }"
 for HOST in $CLUSTER_HOST_LIST ; do
 	echo "$HOST update env ZOOKEEPER_URL=$ZOOKEEPER_URL"
     ssh $HOST "sed -i -e 's/export ZOOKEEPER_URL=.*/export ZOOKEEPER_URL=$ZOOKEEPER_URL/' /etc/profile.d/zookeeper.sh  "
-	echo "$HOST exec: cd ${LOGS_BASE} && ${ZOOKEEPER_HOME}/bin/zkServer.sh restart  "
-    ssh $HOST "cd ${LOGS_BASE} && ${ZOOKEEPER_HOME}/bin/zkServer.sh restart  "
+	echo "$HOST exec: ${ZOOKEEPER_HOME}/sbin/stop_zookeeper.sh;${ZOOKEEPER_HOME}/sbin/start_zookeeper.sh"
+    ssh $HOST "${ZOOKEEPER_HOME}/sbin/stop_zookeeper.sh"
+    ssh $HOST "${ZOOKEEPER_HOME}/sbin/start_zookeeper.sh"
 done
