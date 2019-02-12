@@ -49,6 +49,8 @@ fi
 guName=${gitUserName} 
 git config --global user.email "$guName@sohu.com"
 git config --global user.name "$guName"
+git config --global http.sslCAPath /etc/pki/tls/certs
+git config --global http.sslVerify false
 
 
 auto_git () {
