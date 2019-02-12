@@ -5,7 +5,7 @@ After=remote-fs.target network.target
 Before=docker.service
 
 [Service]
-ExecStart=/etc/init.d/sobeyhive.sh
+ExecStart=/etc/init.d/appservice.sh
 ExecReload=/bin/kill -USR2 $MAINPID
 
 [Install]

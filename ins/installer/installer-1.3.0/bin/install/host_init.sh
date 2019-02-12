@@ -23,10 +23,9 @@ service sshd restart
 LOCAL_IP=$1
 LOCAL_HOST=$2
 
-sed -e "s|hive_sysctl|sysctl|g" /etc/init.d/shostname.sh
-sed -e "s|hive_sysctl|sysctl|g" /etc/init.d/sobeyhive.sh
-sed -e "s|sobeyhive.init|app_init.sh|g" /etc/init.d/sobeyhive.sh
+sed -i -e "s|hive_sysctl|sysctl|g" -e "s|1sobeyhive.sh|1appenv.sh|g" /etc/init.d/shostname.sh
 mv /etc/init.d/sobeyhive.sh /etc/init.d/appservice.sh 
+sed -i -e "s|hive_sysctl|sysctl|g"  -e "s|sobeyhive.init|app_init.sh|g" -e "s|1sobeyhive.sh|1appenv.sh|g"  /etc/init.d/appservice.sh
 
 
 . $BIN/1appenv.sh $LOCAL_IP $LOCAL_HOST
