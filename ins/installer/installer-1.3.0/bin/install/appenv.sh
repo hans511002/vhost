@@ -20,7 +20,7 @@ fi
 echo "
 export APP_ETC=/etc/app
 export INSTALL_ROOT=${app_install_path_base}
-export INS_BASE=$INSTALL_ROOT
+export INS_BASE=\$INSTALL_ROOT
 export APP_BASE=${app_install_path_app_dir}
 export DATA_BASE=${app_install_path_data_dir}
 export LOGS_BASE=${app_install_path_logs_dir}

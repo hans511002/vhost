@@ -4,7 +4,7 @@
 CLS_HOST_LIST="${CLUSTER_HOST_LIST//,/ }"
 # `cat /bin/cmd.sh |grep "for HOST"|sed -e 's/.*for HOST in//' -e 's/;.*//'`
 
-CRT_DIR="${INS_BASE}/crt"
+CRT_DIR="${INSTALL_ROOT}/crt"
 proDomain=$(echo "$PRODUCT_DOMAIN" | awk -F. '{print $1}')
 rootDomain=${PRODUCT_DOMAIN/$proDomain./}
 echo "rootDomain=$rootDomain"
@@ -27,7 +27,7 @@ for HOST in $_CLS_HOST_LIST ; do
 done
 
 #拷贝证书到每个节点
-CRT_DIR="${INS_BASE}/crt"
+CRT_DIR="${INSTALL_ROOT}/crt"
 for HOST in $_CLS_HOST_LIST ; do
     ssh $HOST mkdir -p /etc/haproxy/
     scp -rp $CRT_DIR $HOST:/etc/haproxy/

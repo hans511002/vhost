@@ -68,29 +68,38 @@ sed -i -e "s|\${PRODUCT_DOMAIN}|$DOMAIN|g" -e "s|\${ROOT_DOMAIN}|$rootDomain|g" 
 
 
 DNSIPS=`getDnsIpList`
-ipIndex=(${DNSIPS//,/ })
-ipIndex=${#ipIndex[@]}
-if [ "`check_app keepalived`" = "true" ]; then
-    ((ipIndex++))
-fi
-for DNSHOSTIP in ${DNSIPS//,/ } ; do
-    thip=`cat $extFile | grep IP.$ipIndex=`
-    if [ "$thip" = "" ] ; then
-        sed -i -e "/IP.1=.*/aIP.$ipIndex=$DNSHOSTIP"  $extFile
-    else
-        sed -i -e "s|IP.$ipIndex=.*|IP.$ipIndex=$DNSHOSTIP|"  $extFile
+if [ "$DNSIPS" != "" ] ; then 
+    DNSHOSTIPS=""
+    ipIndex=0
+    for DNSHOSTIP in ${DNSIPS//,/ } ; do
+        if [ "`checkIPAddr $DNSHOSTIP`" = "true" ] ; then
+           ((ipIndex++))
+           DNSHOSTIPS="$DNSHOSTIPS $DNSHOSTIP"
+        fi 
+    done 
+    if [ "`check_app keepalived`" = "true" ]; then
+        ((ipIndex++))
     fi
-    ((ipIndex--))
-done
+    for DNSHOSTIP in ${DNSHOSTIPS//,/ } ; do
+        thip=`cat $extFile | grep IP.$ipIndex=`
+        if [ "$thip" = "" ] ; then
+            sed -i -e "/IP.1=.*/aIP.$ipIndex=$DNSHOSTIP"  $extFile
+        else
+            sed -i -e "s|IP.$ipIndex=.*|IP.$ipIndex=$DNSHOSTIP|"  $extFile
+        fi
+        ((ipIndex--))
+    done
 
-if [ "`check_app keepalived`" = "true" ]; then
-    thip=`cat $extFile | grep IP.$ipIndex=`
-    if [ "$thip" = "" ] ; then
-        sed -i -e "/DNS.1=.*/aIP.$ipIndex=$NEBULA_VIP"  $extFile
-    else
-        sed -i -e "s|IP.$ipIndex=.*|IP.$ipIndex=$NEBULA_VIP|"  $extFile
+    if [ "`check_app keepalived`" = "true" ]; then
+        thip=`cat $extFile | grep IP.$ipIndex=`
+        if [ "$thip" = "" ] ; then
+            sed -i -e "/DNS.1=.*/aIP.$ipIndex=$NEBULA_VIP"  $extFile
+        else
+            sed -i -e "s|IP.$ipIndex=.*|IP.$ipIndex=$NEBULA_VIP|"  $extFile
+        fi
     fi
-fi
+fi 
+
 
 
 
@@ -162,6 +171,6 @@ else
     openssl pkcs12 -export -clcerts -out $WORK_DIR/$CRTNAME.pfx -inkey $WORK_DIR/$CRTNAME.key -in $WORK_DIR/$CRTNAME.crt -password pass:$CAPAASWD
 fi
 
-echo "keytool -importkeystore -v -srckeystore  openssl.p12 -srcstoretype pkcs12 -srcstorepass $CAPAASWD -destkeystore $CRTNAME.keystore -deststoretype jks -deststorepass $CAPAASWD"
-keytool -importkeystore -v -srckeystore  openssl.p12 -srcstoretype pkcs12 -srcstorepass $CAPAASWD -destkeystore $CRTNAME.keystore -deststoretype jks -deststorepass $CAPAASWD
+echo "keytool -importkeystore -v -srckeystore $WORK_DIR/$CRTNAME.pfx -srcstoretype pkcs12 -srcstorepass $CAPAASWD -destkeystore $CRTNAME.keystore -deststoretype jks -deststorepass $CAPAASWD"
+keytool -importkeystore -v -srckeystore $WORK_DIR/$CRTNAME.pfx -srcstoretype pkcs12 -srcstorepass $CAPAASWD -destkeystore $CRTNAME.keystore -deststoretype jks -deststorepass $CAPAASWD
 

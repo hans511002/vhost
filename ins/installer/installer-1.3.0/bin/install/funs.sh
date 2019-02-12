@@ -633,13 +633,31 @@ isDnsHaHost(){
         echo "false"
     fi
 }
+checkIPAddr(){
+    echo $1|grep "^[0-9]\{1,3\}\.\([0-9]\{1,3\}\.\)\{2\}[0-9]\{1,3\}$" > /dev/null; 
+    if [ $? -ne 0 ] ; then 
+        echo false 
+    fi 
+    ipaddr=$1 
+    a=`echo $ipaddr|awk -F . '{print $1}'` 
+    b=`echo $ipaddr|awk -F . '{print $2}'` 
+    c=`echo $ipaddr|awk -F . '{print $3}'` 
+    d=`echo $ipaddr|awk -F . '{print $4}'` 
+    for num in $a $b $c $d 
+    do 
+        if [ $num -gt 255 ] || [ $num -lt 0 ] ; then 
+            echo false 
+        fi 
+    done 
+    echo true 
+} 
 
 getDnsIpList(){
     if [ "`check_app keepalived`" = "false" -a  "`check_app haproxy`" = "false" ] ; then
      #not install keepalived and haproxy , all host ins dns
         clusHostLists="${CLUSTER_HOST_LIST}"
         clusIpLists="${CLUSTER_IP_LIST}"
-        echo " mod env NEBULA_VIP=$PRODUCT_DOMAIN"
+        echo " mod env NEBULA_VIP=$PRODUCT_DOMAIN" >&2
         sed -i -e "s@export NEBULA_VIP=.*@export NEBULA_VIP=$PRODUCT_DOMAIN@" /etc/profile.d/1appenv.sh
     else # ins keepalived,only ka host ins dns
         if [ "`check_app keepalived`" = "true" ]; then
