@@ -4,6 +4,7 @@
 
 bin=`dirname "${BASH_SOURCE-$0}"`
 bin=`cd "$bin">/dev/null; pwd`
+cd $bin
 
 GIT=`which git`
 
