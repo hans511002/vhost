@@ -119,7 +119,7 @@ if [ -d "$imagesDir/haproxy" ] ; then
         docker save -o $appName-$appVer.tar $appName:$appVer
         gzip $appName-$appVer.tar
         cd $INSTALL_SRC/$appName/
-        tar zcf mysql-$appVer.tar.gz mysql-$appVer && md5sum mysql-$appVer.tar.gz > mysql-$appVer.tar.gz.md5 
+        tar zcf $appName-$appVer.tar.gz $appName-$appVer && md5sum $appName-$appVer.tar.gz > $appName-$appVer.tar.gz.md5 
     fi
     appName=hadocker
     if [ -d "$INSTALL_SRC/$appName/" ] ; then
@@ -139,8 +139,8 @@ if [ -d "$imagesDir/haproxy" ] ; then
         docker save -o $appName-$appVer.tar $appName:$appVer
         gzip $appName-$appVer.tar
         cd $INSTALL_SRC/$appName/
-        tar zcf mysql-$appVer.tar.gz mysql-$appVer && md5sum mysql-$appVer.tar.gz > mysql-$appVer.tar.gz.md5 
-    fi    
+        tar zcf $appName-$appVer.tar.gz $appName-$appVer && md5sum $appName-$appVer.tar.gz > $appName-$appVer.tar.gz.md5 
+    fi 
 fi
 
 
