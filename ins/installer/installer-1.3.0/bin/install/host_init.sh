@@ -6,6 +6,10 @@ if [ "$#" -lt "2" ] ; then
     echo "not in installer exec"
 fi
 
+yum install -y yum-utils 
+yum-config-manager --add-repo https://download.docker.com/linux/centos/7/x86_64/stable
+
+
 chmod u+s /bin/ping
 
 sed -i -e 's/SELINUX=enforcing/#SELINUX=enforcing/' /etc/selinux/config

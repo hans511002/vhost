@@ -242,7 +242,7 @@ export USERID=`getUserID`
 
 checkRunUser(){
 APP_NAME=$1
-appUser=`env|grep "^${APP_NAME}_user$"=|sed -e 's|.*=||'`
+appUser=`env|grep "^${APP_NAME}_user="|sed -e 's|.*=||'`
 if [ "$appUser" = "" ] ; then
     appUser="root"
 fi
