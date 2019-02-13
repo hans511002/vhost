@@ -1,0 +1,15 @@
+
+[Unit]
+Description=HAProxy Load Balancer
+After=syslog.target network.target
+
+[Service]
+EnvironmentFile=/etc/sysconfig/haproxy
+ExecStart=/etc/haproxy/haproxy_server.sh start $OPTIONS
+ExecReload=/etc/haproxy/haproxy_server.sh restart $MAINPID
+ExecStop=/etc/haproxy/haproxy_server.sh stop $MAINPID
+
+[Install]
+WantedBy=multi-user.target
+
+
