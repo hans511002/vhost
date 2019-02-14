@@ -5,7 +5,7 @@ cd "$bin"
 bin=`cd "$bin">/dev/null; pwd`
 cd $bin
 
-. /sobeyhive/app/install/funs.sh 
+. ${APP_BASE}/install/funs.sh 
 
 export APP_HOME="$bin"
 export _APP_VERSION=`echo ${APP_HOME//*\//}|sed -e "s|.*-||"`

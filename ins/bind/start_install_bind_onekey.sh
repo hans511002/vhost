@@ -34,13 +34,13 @@ function upgrade_app(){
 
     #scp
     for host in ${appHosts//,/ }; do
-        echo "scp -rp $bin/${appName}-${appNewVer}/ $host:/sobeyhive/app/"
-        scp -rp $bin/${appName}-${appNewVer}/ $host:/sobeyhive/app/
+        echo "scp -rp $bin/${appName}-${appNewVer}/ $host:${APP_BASE}"
+        scp -rp $bin/${appName}-${appNewVer}/ $host:${APP_BASE}
         ssh $host systemctl stop hivedns 2>/dev/null
         ssh $host systemctl stop named 2>/dev/null
         ssh $host systemctl disable named 2>/dev/null
-        echo "ssh $host /sobeyhive/app/${appName}-${appNewVer}/start_install_bind.sh ${appHosts%%,*} ${appHosts%%,*} $appNewVer"
-        ssh $host /sobeyhive/app/${appName}-${appNewVer}/start_install_bind.sh ${appHosts%%,*} ${appHosts%%,*} $appNewVer
+        echo "ssh $host ${APP_BASE}/${appName}-${appNewVer}/start_install_bind.sh ${appHosts%%,*} ${appHosts%%,*} $appNewVer"
+        ssh $host ${APP_BASE}/${appName}-${appNewVer}/start_install_bind.sh ${appHosts%%,*} ${appHosts%%,*} $appNewVer
     done
 }
 

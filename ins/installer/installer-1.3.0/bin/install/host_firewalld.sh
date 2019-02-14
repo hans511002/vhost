@@ -2,6 +2,8 @@
 
 
 . /etc/profile.d/1sobeyhive.sh
+. /etc/profile.d/1appenv.sh
+
 . $APP_BASE/install/funs.sh
 
 # 1.0 不安装 firewalld

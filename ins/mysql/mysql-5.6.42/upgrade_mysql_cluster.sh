@@ -9,7 +9,7 @@ if [ $# -lt 4 ] ; then
   echo "usetag: localip localhostname appver _FROM_VERSION"
   exit 1
 fi
-. /sobeyhive/app/install/funs.sh 
+. ${APP_BASE}/install/funs.sh 
 
 bin=`dirname "${BASH_SOURCE-$0}"`
 cd "$bin"

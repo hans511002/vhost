@@ -208,9 +208,9 @@ Type=forking
 PIDFile=/var/run/keepalived.pid
 KillMode=process
 EnvironmentFile=-/etc/sysconfig/keepalived
-ExecStart=/sobeyhive/app/keepalived-1.2.13/sbin/keepalived_server.sh start \$KEEPALIVED_OPTIONS
-ExecReload=/sobeyhive/app/keepalived-1.2.13/sbin/keepalived_server.sh restart \$MAINPID
-ExecStop=/sobeyhive/app/keepalived-1.2.13/sbin/keepalived_server.sh stop  -HUP \$MAINPID
+ExecStart=$KA_HOME/sbin/keepalived_server.sh start \$KEEPALIVED_OPTIONS
+ExecReload=$KA_HOME/sbin/keepalived_server.sh restart \$MAINPID
+ExecStop=$KA_HOME/sbin/keepalived_server.sh stop  -HUP \$MAINPID
 
 [Install]
 WantedBy=multi-user.target
