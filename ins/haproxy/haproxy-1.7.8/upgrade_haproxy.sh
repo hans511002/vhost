@@ -41,9 +41,10 @@ if [ "$SERVICE_ENABLE" = "true" ] ; then
     chkconfig haproxy on
 fi
 #配置日志
-mkdir -p /sobeyhive/logs/haproxy
+mkdir -p ${LOGS_BASE}/haproxy
 rm -rf /etc/rsyslog.d/haproxy_log.conf
 cp $HAPROXY_HOME/config/haproxy_log.conf /etc/rsyslog.d
+sed -i -e "s|\${LOGS_BASE}|${LOGS_BASE}|g" /etc/rsyslog.d/haproxy_log.conf
 #开启远程日志
 if [ ! -f /etc/sysconfig/haproxy ] ; then
     echo "" >/etc/sysconfig/haproxy
