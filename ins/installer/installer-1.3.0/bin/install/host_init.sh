@@ -164,10 +164,10 @@ echo "config xinet services......"
 $BIN/xinet/xinet_config.sh
 
 #upgrade ntp
-if [ -f "$APP_BASE/install/ntp/install_ntp.sh" ] ; then
+#if [ -f "$APP_BASE/install/ntp/install_ntp.sh" ] ; then
     scp /etc/ntp.conf /etc/ntp.conf.init.bak
-    $APP_BASE/install/ntp/install_ntp.sh
-fi
+#    $APP_BASE/install/ntp/install_ntp.sh
+#fi
 
 if [ -f "$APP_BASE/install/openssh/install_openssh.sh" ] ; then
     $APP_BASE/install/openssh/install_openssh.sh

@@ -109,6 +109,12 @@ for host in ${CLS_HOST_LIST[@]}; do
     fi
 done
 
+#用chrony作为时间同步
+if [ -f "$APP_BASE/install/chrony/start_install_chrony_onekey.sh" ] ; then
+    $APP_BASE/install/chrony/start_install_chrony_onekey.sh
+fi
+
+
 #MBH不执行$APP_BASE/install/actorinstall/install.sh
 # if [ ${ALL_APP//mosgateway/} = ${ALL_APP} -a ${ALL_APP//otcserver/} = ${ALL_APP} ]; then
     $APP_BASE/install/actorinstall/install.sh
