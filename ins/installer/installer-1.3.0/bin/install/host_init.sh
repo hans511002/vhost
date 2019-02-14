@@ -5,11 +5,32 @@ cd $BIN
 if [ "$#" -lt "2" ] ; then
     echo "not in installer exec"
 fi
+LOCAL_IP=$1
+LOCAL_HOST=$2
+
+# only centos build dynamic docker version
+INSTALL_SRC=$3
+MASTER_HOST=$4
+INSTALL_HOME=$5 
 
 yum install -y yum-utils 
-yum-config-manager --add-repo https://download.docker.com/linux/centos/7/x86_64/stable
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+clusterCfgFile=$INSTALL_HOME/conf/cluster.cfg
+initCfgFile=$INSTALL_HOME/conf/init.cfg
+if [ -f "$clusterCfgFile" -a -f "$initCfgFile" -a "$LOCAL_HOST" = "$MASTER_HOST" ] ; then
+    # ins host
+    dockerVersion=`yum list docker-ce|grep docker-ce.x86_64 *|sed -e "s|docker-ce.x86_64 ||" -e "s| .*||" -e "s|.*:||" -e "s|-.*||"`
+    cd $INSTALL_SRC/docker
+    if [ ! -e "docker-$dockerVersion" ] ; then
+        scp -rp docker-version docker-$dockerVersion
+        tar zcf docker-$dockerVersion.tar.gz docker-$dockerVersion && md5sum docker-$dockerVersion.tar.gz > docker-$dockerVersion.tar.gz.md5
+        rm -rf docker-$dockerVersion
+        sed -i -e "s|docker.version=.*|docker.version=$dockerVersion|g"   $clusterCfgFile
+        sed -i -e "s|docker.versions=.*|docker.versions=$dockerVersion|g"   $initCfgFile
+    fi 
+fi 
 
-
+cd $BIN
 chmod u+s /bin/ping
 
 sed -i -e 's/SELINUX=enforcing/#SELINUX=enforcing/' /etc/selinux/config
@@ -24,8 +45,6 @@ sed -i -e 's/#UseDNS yes/UseDNS no/' /etc/ssh/sshd_config
 sed -i -e 's/UseDNS .*/UseDNS no/' /etc/ssh/sshd_config
 service sshd restart
 
-LOCAL_IP=$1
-LOCAL_HOST=$2
 
 sed -i -e "s|hive_sysctl|sysctl|g" -e "s|1sobeyhive.sh|1appenv.sh|g" /etc/init.d/shostname.sh
 mv /etc/init.d/sobeyhive.sh /etc/init.d/appservice.sh 

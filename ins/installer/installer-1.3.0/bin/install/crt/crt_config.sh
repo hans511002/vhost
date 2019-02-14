@@ -20,7 +20,7 @@ if [ "$crtFile" = "" ] ; then
         ssh $FISRTHOST mkdir -p $CRT_DIR
         ssh $FISRTHOST $APP_BASE/install/crt/crt_build.sh "$PRODUCT_DOMAIN" "$CRT_DIR" $ROOT_DOMAIN
     fi
-	scp $FISRTHOST:$CRT_DIR/ca-bundle.crt /etc/pki/tls/certs/ca-bundle.crt
+	cat $FISRTHOST:$CRT_DIR/ca-bundle.crt >> /etc/pki/tls/certs/ca-bundle.crt
 	if [ "$FISRTHOST" != "$HOSTNAME" ] ; then 
 		mkdir -p $CRT_DIR/
 		scp -rp $FISRTHOST:$CRT_DIR/* $CRT_DIR/
