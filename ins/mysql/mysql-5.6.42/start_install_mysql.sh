@@ -67,16 +67,26 @@ for CT in $dockerImages ; do
     docker rm -f $CT
 done
 fi
-dockerImages=$(docker images |grep "${appName}:${_APP_VERSION}"| awk '{printf("%s "),$1}')
+
+needLoadImage=true
+dockerImages=$(docker images |awk '{printf("%s:%s\n",$1,$2);}'| grep -v "REPOSITORY:TAG" |grep "${appName}:${_APP_VERSION}" )
 if [ "$dockerImages" != "" ] ; then
-for CT in $dockerImages ; do
-    docker rmi -f  $CT
-done
+    for CT in $dockerImages ; do
+        if [ "$CT" = "${appName}:${_APP_VERSION}" ] ; then
+            needLoadImage=false
+        else
+            docker rmi -f  $CT
+        fi 
+    done
 fi
 
-echo "loading ${appName} docker imagefile...
+if [ "$needLoadImage" = "true" ] ; then
+   echo "loading ${appName}${_APP_VERSION} docker imagefile...
 gunzip -c $APP_HOME/$thisapp_imagefile | docker load   "
 gunzip -c $APP_HOME/$thisapp_imagefile | docker load  
+else
+   echo "image ${appName}:${_APP_VERSION} exist, skip load imagefile"
+fi 
 
 # docker images |grep ${appName}
 

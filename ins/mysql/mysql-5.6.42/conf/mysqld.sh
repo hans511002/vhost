@@ -5,17 +5,12 @@ MYSQL_CONF_FILE="$MYSQL_CONF_DIR/my.cnf"
 CLUSTER_FILE="servers"
 SERVER_LIST="$MYSQL_CONF_DIR/$CLUSTER_FILE"
 
-HIVE_USER='sobeyhive'
-HIVE_PASSWORD='$0bEyHive&2o1Six'
+HIVE_USER='mysqldba'
+HIVE_PASSWORD='34954344@qq.com'
 
 function testHostPort()
 {
-which tcping > /dev/null 2>&1
-if [ "$?" = "0" ] ; then 
-    tcping "$@" 2>&1 |sed -e 's|.*open.|open|' -e 's|.*closed.|closed|'
-else
-   nmap -n $1 -p $2|grep $2|grep tcp|awk '{print $2}' | sed -e "s|filtered|open|"
-fi
+   tcping "$@" 2>&1 |sed -e 's|.*open.|open|' -e 's|.*closed.|closed|'
 }
 
 insConfFile=`ls ${MYSQL_CONF_DIR}/*-install.conf`
@@ -89,7 +84,7 @@ HOST_SIZE=0
 for NODE_SERVICE_HOST in $SERVER_LISTS; do  
   ((HOST_SIZE++))
 done
-MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-'$0BeyHive^2olSix'}
+MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-$HIVE_PASSWORD}
 GALERA_CLUSTER=${GALERA_CLUSTER:-"MyCluster"}
 WSREP_SST_PASSWORD=${WSREP_SST_PASSWORD:-"mysqlsst"}
 if [ -z "$VHOSTNAME" ] ; then 
@@ -111,7 +106,7 @@ if [ "$1" = 'mysqld' ]; then
     sed -i -e "s|^wsrep_cluster_address=.*|wsrep_cluster_address=gcomm://|" $MYSQL_CONF_DIR/conf.d/cluster.cnf
     
     #DATADIR="$("$@" --verbose --help 2>/dev/null | awk '$1 == "datadir" { print $2; exit }')"
-    DATADIR=`cat $MYSQL_CONF_FILE|grep -e "^datadir="|awk -F= '{print $2}'`
+    DATADIR=`cat $MYSQL_CONF_FILE|grep -e "^datadir="|awk -F= '{print $2}' | tail -n 1`
     if [ "$DATADIR" = "" ] ; then 
         DATADIR="/var/lib/mysql"
     else
@@ -305,12 +300,14 @@ if [ -n "$GALERA_CLUSTER" ]; then
         sed -i -e "s|#wsrep_sst_receive_address|wsrep_sst_receive_address|" $MYSQL_CONF_DIR/conf.d/cluster.cnf 
         sed -i -e "s|wsrep_sst_receive_address.*|wsrep_sst_receive_address=${VHOSTNAME}:$galeraSSTPort|" $MYSQL_CONF_DIR/conf.d/cluster.cnf 
     fi
-    wsrep_provider_options=`cat $MYSQL_CONF_DIR/conf.d/cluster.cnf|grep wsrep_provider_options ` 
+    wsrep_provider_options=`cat $MYSQL_CONF_DIR/conf.d/cluster.cnf|grep -E "^wsrep_provider_options="` 
     if [ "$wsrep_provider_options" = "" ] ; then
         echo "wsrep_provider_options=\"\"" >> $MYSQL_CONF_DIR/conf.d/cluster.cnf 
+        wsrep_provider_options="base_port=$galeraPort;ist.recv_addr=${VHOSTNAME}:$galeraISTPort;"
+        sed -i -e "s|wsrep_provider_options.*|wsrep_provider_options=\"${wsrep_provider_options}\"|" $MYSQL_CONF_DIR/conf.d/cluster.cnf 
     else
-        sed -i -e "s|#wsrep_provider_options|wsrep_provider_options|" $MYSQL_CONF_DIR/conf.d/cluster.cnf 
-        wsrep_provider_options=`cat $MYSQL_CONF_DIR/conf.d/cluster.cnf|grep wsrep_provider_options ` 
+        #sed -i -e "s|#wsrep_provider_options|wsrep_provider_options|" $MYSQL_CONF_DIR/conf.d/cluster.cnf 
+        wsrep_provider_options=`cat $MYSQL_CONF_DIR/conf.d/cluster.cnf|grep -E "^wsrep_provider_options=" |tail -n 1` 
         wsrep_provider_options=${wsrep_provider_options//\"/}
         wsrep_provider_options=${wsrep_provider_options// /}
         wsrep_provider_options=${wsrep_provider_options//;/ }
@@ -330,7 +327,7 @@ if [ -n "$GALERA_CLUSTER" ]; then
         echo "wsrep_provider_options=$wsrep_provider_options"
         ## base_port = 4567; ist.recv_addr=172.16.131.37:4568; 
         # wsrep_provider_options=`echo "$wsrep_provider_options" |sed -e "s|base_port=[0-9]\{3,5\};||"  -e "s|ist.recv_addr=[0-9]\{3,5\};||"   `
-        sed -i -e "s|wsrep_provider_options.*|wsrep_provider_options=\"${wsrep_provider_options}\"|" $MYSQL_CONF_DIR/conf.d/cluster.cnf 
+        sed -i -e "s|wsrep_provider_options=.*|wsrep_provider_options=\"${wsrep_provider_options}\"|" $MYSQL_CONF_DIR/conf.d/cluster.cnf 
     fi
 fi
 
@@ -345,13 +342,13 @@ fi
 
 function stopMysql(){
 date
-echo "收到停止命令,开始停止 mysql 数据库 "
+echo "== 收到停止命令,开始停止 mysql 数据库 == "
 echo "Receive a stop command, start to stop the mysql database "
 /etc/init.d/mysql stop
 echo "
 stop end"
 date
-rm -rf $DATADIR/mysql.sock $DATADIR/mysql.sock.lock
+rm -rf $DATADIR/mysql.sock $DATADIR/mysql.sock.lock 2>/dev/null
 }
 trap "stopMysql"  1 2 3 9 15
 
@@ -359,5 +356,6 @@ trap "stopMysql"  1 2 3 9 15
 echo  "$@"
 "$@" &
 wait $!
+
 
 
